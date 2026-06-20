@@ -83,36 +83,28 @@ export default function Tenants() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.name}>
-          {item.full_name}
-        </Text>
+        <Text style={styles.name}>{item.full_name}</Text>
 
-        <Text style={styles.phone}>
-          {item.contact_number}
-        </Text>
-
+        <Text style={styles.phone}>{item.contact_number}</Text>
 
         <View
-  style={[
-    styles.statusBadge,
-    {
-      backgroundColor:
-        item.status === "Active"
-          ? "#10B981"
-          : "#EF4444",
-    },
-  ]}
->
-  <Text style={styles.statusText}>
-    {item.status}
-  </Text>
-      </View>
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor:
+                item.status === "Active" ? "#10B981" : "#EF4444",
+            },
+          ]}
+        >
+          <Text style={styles.statusText}>{item.status}</Text>
+        </View>
 
-      <MaterialCommunityIcons
-        name="chevron-right"
-        size={24}
-        color="#94a3b8"
-      />
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={24}
+          color="#94a3b8"
+        />
+      </View>
     </TouchableOpacity>
   );
 
