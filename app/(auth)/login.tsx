@@ -2,16 +2,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -135,7 +135,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#273338",
   },
   scrollContent: {
     flexGrow: 1,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 40,
   },
-  /* --- Logo Styling mimicking your uploaded image --- */
+  /* --- Logo Styling with the new green palette --- */
   logoContainer: {
     width: 80,
     height: 80,
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   panelLeft: {
     width: 45,
     height: 35,
-    backgroundColor: "#111827",
+    backgroundColor: "#9CB080",
     left: 2,
     bottom: 25,
     zIndex: 1,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   panelTop: {
     width: 40,
     height: 40,
-    backgroundColor: "#374151",
+    backgroundColor: "#618764",
     top: 5,
     right: 12,
     zIndex: 2,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   panelRight: {
     width: 45,
     height: 40,
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     right: 2,
     bottom: 8,
     zIndex: 3,
@@ -189,17 +189,25 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#000000",
+    color: "#F2F4F7",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#374151",
+    color: "#9CB080",
     marginTop: 6,
     fontWeight: "400",
   },
   formSection: {
     marginBottom: 24,
+    backgroundColor: "#F2F4F7",
+    borderRadius: 22,
+    padding: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   inputContainer: {
     marginBottom: 18,
@@ -207,41 +215,41 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#374151",
+    color: "#273338",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#D1D9D2",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: "#0F172A",
+    color: "#273338",
     backgroundColor: "#FFFFFF",
   },
   inputFocused: {
-    borderColor: "#000000",
+    borderColor: "#2B5748",
     backgroundColor: "#FFFFFF",
   },
   button: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: "#F2F4F7",
     fontWeight: "700",
     fontSize: 16,
   },
@@ -251,11 +259,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#374151",
+    color: "#F2F4F7",
   },
   linkText: {
     fontSize: 14,
-    color: "#000000",
+    color: "#618764",
     fontWeight: "700",
     marginTop: 4,
   },

@@ -1,14 +1,14 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -102,7 +102,7 @@ export default function AddProperty() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F2F4F7",
     padding: 20,
   },
 
@@ -110,13 +110,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 20,
-    color: "#000000",
+    color: "#273338",
   },
 
   label: {
     marginBottom: 8,
     fontWeight: "600",
-    color: "#0f172a",
+    color: "#273338",
   },
 
   labelRow: {
@@ -132,10 +132,11 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#111827",
+    borderColor: "#2B5748",
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
+    color: "#273338",
   },
 
   description: {
@@ -143,7 +144,7 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 16,
     borderRadius: 12,
     marginTop: 10,

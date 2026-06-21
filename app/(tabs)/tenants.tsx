@@ -2,13 +2,13 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -175,7 +175,7 @@ export default function Tenants() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F2F4F7",
     padding: 16,
     paddingBottom: 110,
   },
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 20,
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 15,
     borderRadius: 14,
     flexDirection: "row",
@@ -215,14 +215,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#D1D5DB",
+    borderColor: "#D1D9D2",
   },
 
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#9CB080",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#000000",
+    color: "#F2F4F7",
   },
 
   content: {
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#000000",
+    color: "#273338",
   },
 
   phone: {
     marginTop: 4,
-    color: "#6B7280",
+    color: "#618764",
   },
 
   emptyContainer: {
@@ -259,26 +259,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginTop: 15,
+    color: "#273338",
   },
 
   emptySubtitle: {
     marginTop: 8,
-    color: "#6B7280",
+    color: "#618764",
   },
 
 
   statusBadge: {
-  alignSelf: "flex-start",
-  marginTop: 6,
-  paddingHorizontal: 10,
-  paddingVertical: 4,
-  borderRadius: 20,
-},
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
 
-statusText: {
-  color: "#fff",
-  fontSize: 12,
-  fontWeight: "700",
-},
+  statusText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 });
 

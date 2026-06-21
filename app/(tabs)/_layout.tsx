@@ -7,35 +7,33 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: true,
 
-        // Clean White Top Header
         headerStyle: {
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#273338",
           borderBottomWidth: 1,
-          borderBottomColor: "#E5E7EB",
+          borderBottomColor: "#2B5748",
           shadowColor: "transparent",
         },
 
         headerTitleStyle: {
           fontSize: 20,
           fontWeight: "800",
-          color: "#000000",
+          color: "#F2F4F7",
           letterSpacing: -0.5,
         },
 
         headerShadowVisible: false,
         tabBarShowLabel: false,
 
-        // Neutral bottom navbar for B/W theme
-        tabBarActiveTintColor: "#000000",
-        tabBarInactiveTintColor: "#6B7280",
+        tabBarActiveTintColor: "#2B5748",
+        tabBarInactiveTintColor: "#618764",
 
         tabBarStyle: {
           height: 72,
           paddingTop: 8,
           paddingBottom: 14,
           borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
-          backgroundColor: "#FFFFFF",
+          borderTopColor: "#D1D9D2",
+          backgroundColor: "#F2F4F7",
           elevation: 0,
         },
 

@@ -182,12 +182,12 @@ export default function AddTenant() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#273338",
   },
 
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F2F4F7",
     padding: 20,
   },
 
@@ -204,35 +204,37 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#2B5748",
+    borderRadius: 10,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#F2F4F7",
   },
 
   title: {
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 20,
-    color: "#000000",
+    color: "#273338",
   },
 
   label: {
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
-    color: "#374151",
+    color: "#273338",
   },
 
   input: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#111827",
+    borderColor: "#2B5748",
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
-    color: "#000",
+    color: "#273338",
   },
 
   notesInput: {
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 20,
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 16,
     borderRadius: 12,
     alignItems: "center",

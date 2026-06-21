@@ -2,16 +2,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -358,7 +358,7 @@ export default function PropertyDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F2F4F7",
     padding: 16,
   },
 
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F2F4F7",
   },
 
   header: {
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 14,
     paddingHorizontal: 12,
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     borderRadius: 16,
     marginTop: 24,
     marginBottom: 14,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 14,
-    backgroundColor: "#111111",
+    backgroundColor: "#2B5748",
   },
 
   backButtonText: {
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   },
 
   modalContainer: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F2F4F7",
     borderRadius: 24,
     padding: 24,
     shadowColor: "#000",
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: "#111827",
+    backgroundColor: "#2B5748",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -455,17 +455,17 @@ const styles = StyleSheet.create({
   },
 
   modalInput: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#2B5748",
     borderRadius: 14,
     padding: 14,
     marginBottom: 16,
-    color: "#111827",
+    color: "#273338",
   },
 
   modalSaveButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 16,
     borderRadius: 14,
   },
@@ -482,17 +482,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#D1D9D2",
   },
 
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#273338",
   },
 
   type: {
-    color: "#0f172a",
+    color: "#273338",
     fontWeight: "600",
     marginTop: 6,
     marginBottom: 18,
@@ -500,24 +500,24 @@ const styles = StyleSheet.create({
 
   detailRow: {
     borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+    borderTopColor: "#D1D9D2",
     paddingVertical: 14,
   },
 
   detailLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#374151",
+    color: "#618764",
     marginBottom: 6,
   },
 
   detailValue: {
-    color: "#111827",
+    color: "#273338",
     lineHeight: 20,
   },
 
   addRoomButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 15,
     borderRadius: 14,
     marginBottom: 20,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 12,
-    color: "#0f172a",
+    color: "#273338",
   },
 
   emptyRoom: {
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#D1D9D2",
   },
 
   roomCard: {
@@ -554,17 +554,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#D1D9D2",
   },
 
   roomName: {
     fontWeight: "700",
     fontSize: 16,
-    color: "#111827",
+    color: "#273338",
   },
 
   roomRent: {
-    color: "#374151",
+    color: "#618764",
     marginTop: 4,
   },
 
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 15,
     borderRadius: 14,
     marginTop: 20,

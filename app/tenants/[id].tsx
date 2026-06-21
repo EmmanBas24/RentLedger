@@ -287,12 +287,12 @@ export default function TenantDetails() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#273338",
   },
 
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F2F4F7",
     padding: 20,
   },
 
@@ -316,6 +316,8 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#2B5748",
+    borderRadius: 10,
   },
 
   headerTitle: {
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
     right: 0,
     fontSize: 18,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#F2F4F7",
     textAlign: "center",
   },
 
@@ -333,21 +335,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 8,
     marginTop: 10,
-    color: "#374151",
+    color: "#273338",
   },
 
   input: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#111827",
+    borderColor: "#2B5748",
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
-    color: "#000",
+    color: "#273338",
   },
 
   editButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 14,
     borderRadius: 12,
     marginBottom: 15,
@@ -360,7 +362,7 @@ const styles = StyleSheet.create({
   },
 
   saveButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#2B5748",
     padding: 14,
     borderRadius: 12,
     marginTop: 20,
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
-    backgroundColor: "#ef4444",
+    backgroundColor: "#273338",
     padding: 14,
     borderRadius: 12,
     marginTop: 15,
