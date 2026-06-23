@@ -1,5 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Print from "expo-print";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -75,7 +77,7 @@ export default function RentalDetails() {
         .from("payments")
         .select("*")
         .eq("rental_id", rentalId)
-        .order("due_date", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.log(error);
@@ -113,10 +115,139 @@ export default function RentalDetails() {
     }
   };
 
+  // UPDATED: Added the explicit monthly room fee itemization inside the HTML template
+  const generateReceiptPDF = async (amountPaid: number, isInitialMoveIn: boolean = false) => {
+    const receiptId = `REC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const dateString = new Date().toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const monthlyRentRate = Number(rental.monthly_rent) || 0;
+    let tableRowsHtml = "";
+    let totalReceiptAmount = 0;
+
+    if (isInitialMoveIn) {
+      const advanceValue = Number(rental.advance_payment) || 0;
+      totalReceiptAmount = advanceValue;
+      const monthsCovered = monthlyRentRate > 0 ? Math.floor(advanceValue / monthlyRentRate) : 1;
+
+      tableRowsHtml = `
+        <tr>
+          <td>Standard Monthly Room Fee Base Rate</td>
+          <td style="text-align: right; vertical-align: middle;">₱${monthlyRentRate.toLocaleString()} / mo</td>
+        </tr>
+        <tr>
+          <td>Initial Advance Rent Deposit Package<br/><small style="color: #64748B;">Prepaid Coverage Duration: ${monthsCovered} Months</small></td>
+          <td style="text-align: right; vertical-align: middle; font-weight: 600; color: #2E5052;">₱${advanceValue.toLocaleString()}</td>
+        </tr>
+      `;
+    } else {
+      totalReceiptAmount = amountPaid;
+      tableRowsHtml = `
+        <tr>
+          <td>Standard Monthly Room Fee Base Rate</td>
+          <td style="text-align: right;">₱${monthlyRentRate.toLocaleString()}</td>
+        </tr>
+        <tr style="background-color: #F8FAFC;">
+          <td>Current Statement Period Allocation Billing</td>
+          <td style="text-align: right; font-weight: 600;">₱${amountPaid.toLocaleString()}</td>
+        </tr>
+      `;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body { font-family: 'Helvetica Neue', sans-serif; padding: 30px; color: #333; }
+            .receipt-box { max-width: 800px; margin: auto; border: 1px solid #E5E7EB; padding: 30px; border-radius: 8px; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #76ABAE; padding-bottom: 20px; }
+            .title { color: #303841; font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .meta-details { text-align: right; font-size: 14px; color: #64748B; line-height: 1.5; }
+            .info-section { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .info-card { background: #F8FAFC; padding: 15px; border-radius: 6px; border: 1px solid #E2E8F0; }
+            .info-card h3 { margin: 0 0 10px 0; color: #76ABAE; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .info-card p { margin: 4px 0; font-size: 14px; color: #334155; }
+            .table-container { margin-top: 40px; }
+            table { width: 100%; border-collapse: collapse; text-align: left; }
+            th { background-color: #303841; color: white; padding: 12px; font-size: 14px; }
+            td { padding: 12px; border-bottom: 1px solid #E2E8F0; font-size: 14px; line-height: 1.4; }
+            .total-row { font-weight: bold; font-size: 16px; background-color: #EBF5F6; color: #2E5052; }
+            .footer { margin-top: 60px; text-align: center; color: #94A3B8; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-box">
+            <div class="header">
+              <div>
+                <div class="title">RENTAL PAYMENT RECEIPT</div>
+                <div style="color: #76ABAE; font-weight: 600;">Statement Breakdown</div>
+              </div>
+              <div class="meta-details">
+                <strong>Receipt #:</strong> ${receiptId}<br />
+                <strong>Date Issued:</strong> ${dateString}<br />
+                <strong>Status:</strong> PAID
+              </div>
+            </div>
+
+            <div class="info-section">
+              <div class="info-card">
+                <h3>Tenant Details</h3>
+                <p><strong>Name:</strong> ${rental.tenants?.full_name}</p>
+                <p><strong>Email:</strong> ${rental.tenants?.email}</p>
+                <p><strong>Contact:</strong> ${rental.tenants?.contact_number}</p>
+              </div>
+              <div class="info-card">
+                <h3>Property Spaces</h3>
+                <p><strong>Property:</strong> ${rental.assets?.property_name}</p>
+                <p><strong>Room / Unit:</strong> Room ${rental.rooms?.room_number}</p>
+                <p><strong>Location:</strong> ${rental.assets?.address}</p>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th style="text-align: right;">Amount Charged</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRowsHtml}
+                  <tr class="total-row">
+                    <td>Total Handed Balance Settled</td>
+                    <td style="text-align: right;">₱${totalReceiptAmount.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Share Rental Receipt" });
+      } else {
+        Alert.alert("Success", "Receipt saved onto device cache local storage!");
+      }
+    } catch (pdfError) {
+      Alert.alert("Error", "Could not generate transaction PDF document assets.");
+    }
+  };
+
   const handlePayRent = async () => {
+    const amountToPay = rental.monthly_rent;
+
     Alert.alert(
       "Confirm Payment",
-      `Receive payment of ₱${Number(rental.monthly_rent).toLocaleString()} for this rental?`,
+      `Receive payment of ₱${Number(amountToPay).toLocaleString()} for this rental?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -130,15 +261,29 @@ export default function RentalDetails() {
 
               const { error } = await supabase.from("payments").insert({
                 rental_id: rental.id,
-                amount: rental.monthly_rent,
+                amount: amountToPay,
                 payment_status: "Paid",
                 user_id: user?.id,
               });
 
               if (error) throw error;
 
-              Alert.alert("Success", "Payment recorded successfully!");
               await fetchPaymentSummary(rental.id);
+
+              const isFirstPayment = payments.length === 0 && Number(rental.advance_payment) > 0;
+
+              Alert.alert(
+                "Success", 
+                "Payment recorded successfully!",
+                [
+                  { text: "Close", style: "cancel" },
+                  { 
+                    text: "Generate Receipt", 
+                    style: "default", 
+                    onPress: () => generateReceiptPDF(amountToPay, isFirstPayment) 
+                  }
+                ]
+              );
             } catch (error: any) {
               Alert.alert("Error", error.message || "Failed to log payment.");
             } finally {
@@ -284,7 +429,7 @@ export default function RentalDetails() {
           </View>
         </View>
 
-        {/* Financial Overview Metrics (UPDATED: Removed Due Card) */}
+        {/* Financial Overview Metrics */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel} numberOfLines={1}>Paid</Text>
@@ -391,46 +536,49 @@ export default function RentalDetails() {
           {payments.length === 0 ? (
             <Text style={styles.emptyText}>No payment history records found.</Text>
           ) : (
-            payments.map((item, index) => (
-              <View 
-                key={item.id || index} 
-                style={[
-                  styles.historyRow, 
-                  index !== payments.length - 1 && styles.historySeparator
-                ]}
-              >
-                <View style={styles.historyLeft}>
-                  <Text style={styles.historyMonth}>{item.billing_month || "Statement Balance"}</Text>
-                  <Text style={styles.historyMeta}>
-                    {item.payment_status === "Paid" 
-                      ? `Paid on: ${item.payment_date || item.created_at?.split("T")[0]}` 
-                      : `Due Date: ${item.due_date || "N/A"}`}
-                  </Text>
-                  {item.payment_method && (
-                    <Text style={styles.historyMethodBadge}>{item.payment_method}</Text>
-                  )}
-                </View>
+            payments.map((item, index) => {
+              const isInitialMoveInRow = index === payments.length - 1;
 
-                <View style={styles.historyRight}>
-                  <Text style={styles.historyAmount}>₱{Number(item.amount).toLocaleString()}</Text>
-                  <View 
-                    style={[
-                      styles.historyStatusBadge, 
-                      item.payment_status === "Paid" ? styles.badgePaid : styles.badgeDue
-                    ]}
-                  >
-                    <Text 
-                      style={[
-                        styles.historyStatusText, 
-                        item.payment_status === "Paid" ? styles.textPaid : styles.textDue
-                      ]}
-                    >
-                      {item.payment_status}
+              const displayAmountRow = isInitialMoveInRow && Number(rental.advance_payment) > 0
+                ? Number(rental.advance_payment)
+                : Number(item.amount);
+
+              return (
+                <View 
+                  key={item.id || index} 
+                  style={[
+                    styles.historyRow, 
+                    index !== payments.length - 1 && styles.historySeparator
+                  ]}
+                >
+                  <View style={styles.historyLeft}>
+                    <Text style={styles.historyMonth}>
+                      {isInitialMoveInRow && Number(rental.advance_payment) > 0 
+                        ? "Initial Move-in Costs" 
+                        : (item.billing_month || "Monthly Rental Statement")}
+                    </Text>
+                    <Text style={styles.historyMeta}>
+                      {item.payment_status === "Paid" 
+                        ? `Paid on: ${item.payment_date || item.created_at?.split("T")[0]}` 
+                        : `Due Date: ${item.due_date || "N/A"}`}
                     </Text>
                   </View>
+
+                  <View style={styles.historyRight}>
+                    <Text style={styles.historyAmount}>
+                      ₱{displayAmountRow.toLocaleString()}
+                    </Text>
+                    <TouchableOpacity 
+                      style={[styles.historyStatusBadge, styles.badgePaid]}
+                      onPress={() => generateReceiptPDF(Number(item.amount), isInitialMoveInRow)}
+                    >
+                      <MaterialCommunityIcons name="download" size={12} color="#166534" style={{ marginRight: 2 }} />
+                      <Text style={[styles.historyStatusText, styles.textPaid]}>Receipt</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -505,12 +653,9 @@ const styles = StyleSheet.create({
   historyRight: { flex: 1, alignItems: "flex-end", gap: 4 },
   historyMonth: { fontSize: 15, fontWeight: "700", color: "#303841" },
   historyMeta: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  historyMethodBadge: { alignSelf: "flex-start", backgroundColor: "#F1F5F9", color: "#475569", fontSize: 11, fontWeight: "600", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4, overflow: "hidden" },
   historyAmount: { fontSize: 15, fontWeight: "700", color: "#303841" },
-  historyStatusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  historyStatusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgePaid: { backgroundColor: "#DCFCE7" },
-  badgeDue: { backgroundColor: "#FEF9C3" },
   historyStatusText: { fontSize: 11, fontWeight: "700" },
   textPaid: { color: "#166534" },
-  textDue: { color: "#854D0E" },
 });
