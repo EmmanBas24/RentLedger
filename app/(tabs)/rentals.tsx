@@ -25,7 +25,9 @@ export default function Rentals() {
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Completed">("Active");
+  
+  // UPDATED: Changed technical state constraint type from 'Completed' to 'Ended'
+  const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Ended">("Active");
 
   useFocusEffect(
     useCallback(() => {
@@ -96,7 +98,8 @@ export default function Rentals() {
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>Filter rentals</Text>
         <View style={styles.filterRow}>
-          {(["Active", "Completed"] as const).map((status) => (
+          {/* UPDATED: Map array values to match database layout ["Active", "Ended"] */}
+          {(["Active", "Ended"] as const).map((status) => (
             <TouchableOpacity
               key={status}
               style={[
@@ -111,7 +114,8 @@ export default function Rentals() {
                   filterStatus === status && styles.filterButtonTextActive,
                 ]}
               >
-                {status}
+                {/* UPDATED: Dynamic labeling transforms for localized display updates */}
+                {status === "Active" ? "Active Rentals" : "Past Rentals"}
               </Text>
             </TouchableOpacity>
           ))}
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
     color: "#F5F5F5",
   },
   listContent: {
-    paddingBottom: 100, // Provides extra scroll headroom above absolute action frame
+    paddingBottom: 100,
   },
   card: {
     backgroundColor: "#FFFFFF",
