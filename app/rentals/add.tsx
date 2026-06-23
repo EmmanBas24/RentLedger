@@ -19,6 +19,7 @@ import { supabase } from "../../src/lib/supabase";
 interface Tenant {
   id: string;
   full_name: string;
+  status: string;
 }
 
 interface Asset {
@@ -45,10 +46,6 @@ export default function AddRental() {
   const [roomId, setRoomId] = useState("");
 
   const [monthlyRent, setMonthlyRent] = useState("");
-
-  const [securityDeposit, setSecurityDeposit] =
-    useState("");
-
   const [advancePayment, setAdvancePayment] =
     useState("");
 
@@ -72,18 +69,38 @@ export default function AddRental() {
   }, [assetId]);
 
   const fetchTenants = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setTenants([]);
+      return;
+    }
+
     const { data } = await supabase
       .from("tenants")
-      .select("id, full_name")
+      .select("id, full_name, status")
+      .eq("user_id", user.id)
       .order("full_name");
 
     setTenants(data || []);
   };
 
   const fetchAssets = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setAssets([]);
+      return;
+    }
+
     const { data } = await supabase
       .from("assets")
       .select("id, property_name")
+      .eq("user_id", user.id)
       .order("property_name");
 
     setAssets(data || []);
@@ -117,49 +134,108 @@ export default function AddRental() {
     }
   };
 
+  const isValidDate = (value: string) => {
+    return (
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(new Date(value).getTime())
+    );
+  };
+
   const handleCreateRental = async () => {
-    Alert.alert("Handler Triggered");
-  console.log("Handler Triggered");
-if (
-  !tenantId ||
-  !assetId ||
-  !roomId ||
-  !monthlyRent ||
-  !leaseStartDate ||
-  !dueDay
-) {
-  Alert.alert(
-    "Debug",
-    JSON.stringify(
-      {
-        tenantId,
-        assetId,
-        roomId,
-        monthlyRent,
-        leaseStartDate,
-        dueDay,
-      },
-      null,
-      2
-    )
-  );
+    const monthlyRentValue = Number(monthlyRent);
+    const advancePaymentValue = Number(advancePayment || 0);
+    const dueDayValue = Number(dueDay);
 
-  return;
-}
+    if (!tenantId || !assetId || !roomId) {
+      Alert.alert(
+        "Validation Error",
+        "Please choose a tenant, property, and room."
+      );
+      return;
+    }
 
-  try {
-    setLoading(true);
+    if (!monthlyRent || monthlyRentValue <= 0) {
+      Alert.alert(
+        "Validation Error",
+        "Select a room with a valid monthly rent."
+      );
+      return;
+    }
+
+    if (!leaseStartDate || !isValidDate(leaseStartDate)) {
+      Alert.alert(
+        "Validation Error",
+        "Enter a valid lease start date in YYYY-MM-DD format."
+      );
+      return;
+    }
+
+    // Lease start date must not be in the past
+    const startDateObj = new Date(leaseStartDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (startDateObj < today) {
+      Alert.alert(
+        "Validation Error",
+        "Lease start date cannot be in the past."
+      );
+      return;
+    }
+
+    if (
+      leaseEndDate &&
+      (!isValidDate(leaseEndDate) || new Date(leaseEndDate) < new Date(leaseStartDate))
+    ) {
+      Alert.alert(
+        "Validation Error",
+        "Enter a valid lease end date that is on or after the lease start date."
+      );
+      return;
+    }
+
+    if (
+      !dueDay ||
+      Number.isNaN(dueDayValue) ||
+      dueDayValue < 1 ||
+      dueDayValue > 28
+    ) {
+      Alert.alert(
+        "Validation Error",
+        "Due day must be a whole number between 1 and 28."
+      );
+      return;
+    }
+
+    if (advancePayment && advancePaymentValue < 0) {
+      Alert.alert(
+        "Validation Error",
+        "Advance payment cannot be negative."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      Alert.alert("Error", "User session not found.");
+      setLoading(false);
+      return;
+    }
 
    const { data, error } = await supabase
   .from("rentals")
   .insert([
     {
+      user_id: user.id,
       tenant_id: tenantId,
       asset_id: assetId,
       room_id: roomId,
       monthly_rent: Number(monthlyRent),
-      security_deposit:
-        Number(securityDeposit) || 0,
       advance_payment:
         Number(advancePayment) || 0,
       lease_start_date: leaseStartDate,
@@ -177,7 +253,6 @@ console.log({
   assetId,
   roomId,
   monthlyRent,
-  securityDeposit,
   advancePayment,
   leaseStartDate,
   leaseEndDate,
@@ -274,7 +349,12 @@ const {
   error: paymentError,
 } = await supabase
   .from("payments")
-  .insert(paymentRecords);
+  .insert(
+    paymentRecords.map((record) => ({
+      ...record,
+      user_id: user.id,
+    }))
+  );
 
 if (paymentError) {
   console.log(
@@ -342,13 +422,14 @@ if (paymentError) {
           Create Rental
         </Text>
 
-      <Text style={styles.label}>Tenant</Text>
+        <View style={styles.section}>
+          <Text style={styles.label}>Tenant</Text>
 
-      <Picker
-        selectedValue={tenantId}
-        onValueChange={setTenantId}
-        style={styles.input}
-      >
+          <Picker
+            selectedValue={tenantId}
+            onValueChange={setTenantId}
+            style={styles.picker}
+          >
         <Picker.Item
           label="Select Tenant"
           value=""
@@ -357,7 +438,7 @@ if (paymentError) {
         {tenants.map((tenant) => (
           <Picker.Item
             key={tenant.id}
-            label={tenant.full_name}
+            label={`${tenant.full_name} (${tenant.status})`}
             value={tenant.id}
           />
         ))}
@@ -368,7 +449,7 @@ if (paymentError) {
       <Picker
         selectedValue={assetId}
         onValueChange={setAssetId}
-        style={styles.input}
+        style={styles.picker}
       >
         <Picker.Item
           label="Select Property"
@@ -389,7 +470,7 @@ if (paymentError) {
       <Picker
         selectedValue={roomId}
         onValueChange={handleRoomChange}
-        style={styles.input}
+        style={styles.picker}
       >
         <Picker.Item
           label="Select Room"
@@ -399,89 +480,65 @@ if (paymentError) {
         {rooms.map((room) => (
           <Picker.Item
             key={room.id}
-            label={room.room_number}
+            label={`${room.room_number} — ₱${room.monthly_rent.toLocaleString()}`}
             value={room.id}
           />
         ))}
       </Picker>
 
-      <Text style={styles.label}>
-        Monthly Rent
-      </Text>
-
+      <Text style={styles.label}>Monthly Rent</Text>
       <TextInput
         value={monthlyRent}
         editable={false}
         style={styles.input}
       />
 
-      <Text style={styles.label}>
-        Security Deposit
-      </Text>
-
-      <TextInput
-        value={securityDeposit}
-        onChangeText={setSecurityDeposit}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text style={styles.label}>
-        Advance Payment
-      </Text>
-
+      <Text style={styles.label}>Advance Payment</Text>
       <TextInput
         value={advancePayment}
         onChangeText={setAdvancePayment}
         keyboardType="numeric"
+        placeholder="Optional"
+        placeholderTextColor="#94A3B8"
         style={styles.input}
       />
 
-      <Text style={styles.label}>
-        Lease Start Date
-      </Text>
-
+      <Text style={styles.label}>Lease Start Date</Text>
       <TextInput
         value={leaseStartDate}
         onChangeText={setLeaseStartDate}
         placeholder="YYYY-MM-DD"
+        placeholderTextColor="#94A3B8"
         style={styles.input}
       />
 
-      <Text style={styles.label}>
-        Lease End Date
-      </Text>
-
+      <Text style={styles.label}>Lease End Date</Text>
       <TextInput
         value={leaseEndDate}
         onChangeText={setLeaseEndDate}
         placeholder="YYYY-MM-DD"
+        placeholderTextColor="#94A3B8"
         style={styles.input}
       />
 
-    <Text style={styles.label}>
-  Due Day *
-</Text>
-
-<TextInput
-  value={dueDay}
-  onChangeText={(text) => {
-    setDueDay(text);
-    console.log("Due Day:", text);
-  }}
-  keyboardType="number-pad"
-  placeholder="Example: 5"
-  style={styles.textInput}
-/>
-
-<Text style={styles.debugText}>
-  Due Day Value: {dueDay}
-</Text>
+      <Text style={styles.label}>Due Day *</Text>
+      <TextInput
+        value={dueDay}
+        onChangeText={setDueDay}
+        keyboardType="number-pad"
+        placeholder="Example: 5"
+        placeholderTextColor="#94A3B8"
+        style={styles.input}
+      />
+      <Text style={styles.helperText}>
+        Due day should be a number between 1 and 28.
+      </Text>
+    </View>
 
     <TouchableOpacity
-  style={styles.button}
-  onPress={handleCreateRental}
-  disabled={loading}
+      style={styles.button}
+      onPress={handleCreateRental}
+      disabled={loading}
 >
   {loading ? (
     <ActivityIndicator color="#fff" />
@@ -566,9 +623,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 
-  debugText: {
+  helperText: {
+    color: "#475569",
+    fontSize: 13,
     marginBottom: 10,
-    color: "#334155",
+  },
+
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 5,
+  },
+
+  picker: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    marginBottom: 10,
   },
 
   button: {

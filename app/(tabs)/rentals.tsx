@@ -57,12 +57,9 @@ export default function Rentals() {
           id: item.id,
           monthly_rent: item.monthly_rent,
           rental_status: item.rental_status,
-          tenant_name:
-            item.tenants?.full_name || "",
-          property_name:
-            item.assets?.property_name || "",
-          room_number:
-            item.rooms?.room_number || "",
+          tenant_name: item.tenants?.full_name || "Unknown Tenant",
+          property_name: item.assets?.property_name || "Unknown Property",
+          room_number: item.rooms?.room_number || "N/A",
         })) || [];
 
       setRentals(formattedData);
@@ -88,60 +85,48 @@ export default function Rentals() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator
-          size="large"
-          color="#618764"
-        />
+        <ActivityIndicator size="large" color="#76ABAE" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Dynamic Segmented Filter Control */}
       <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>Past rentals</Text>
-
+        <Text style={styles.filterLabel}>Filter rentals</Text>
         <View style={styles.filterRow}>
-          {(["Active", "Completed"] as const).map((status, index) => (
+          {(["Active", "Completed"] as const).map((status) => (
             <TouchableOpacity
               key={status}
               style={[
                 styles.filterButton,
-                index === 0 && styles.filterButtonLeft,
-                index === 1 && styles.filterButtonRight,
-                filterStatus === status &&
-                  styles.filterButtonActive,
+                filterStatus === status && styles.filterButtonActive,
               ]}
               onPress={() => setFilterStatus(status)}
             >
               <Text
                 style={[
                   styles.filterButtonText,
-                  filterStatus === status &&
-                    styles.filterButtonTextActive,
+                  filterStatus === status && styles.filterButtonTextActive,
                 ]}
               >
-                {status === "Active"
-                  ? "Active Rentals"
-                  : "Past Rentals"}
+                {status}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
+      {/* Render Content */}
       {filteredRentals.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons
             name="key-chain-variant"
             size={80}
-            color="#618764"
+            color="#76ABAE"
           />
-
-          <Text style={styles.emptyTitle}>
-            No rentals found
-          </Text>
-
+          <Text style={styles.emptyTitle}>No rentals found</Text>
           <Text style={styles.emptySubtitle}>
             Try another filter or add a new rental.
           </Text>
@@ -150,75 +135,62 @@ export default function Rentals() {
         <FlatList
           data={filteredRentals}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
+              tintColor="#76ABAE"
             />
           }
-          contentContainerStyle={{ paddingBottom: 120 }}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
-              onPress={() =>
-                router.push(`/rentals/${item.id}`)
-              }
+              onPress={() => router.push(`/rentals/${item.id}`)}
             >
-              <View>
-                <Text style={styles.name}>
-                  {item.tenant_name}
-                </Text>
+              <View style={styles.cardMainContent}>
+                {/* Row 1: Tenant Frame */}
+                <Text style={styles.name}>{item.tenant_name}</Text>
 
-                <Text style={styles.details}>
-                  {item.property_name}
-                </Text>
+                {/* Row 2: Location Subtitle Details */}
+                <View style={styles.locationContainer}>
+                  <MaterialCommunityIcons name="office-building" size={14} color="#64748B" />
+                  <Text style={styles.detailsText}>{item.property_name}</Text>
+                  <Text style={styles.detailsDot}>•</Text>
+                  <Text style={styles.detailsText}>Room {item.room_number}</Text>
+                </View>
 
-                <Text style={styles.details}>
-                  {item.room_number}
-                </Text>
-
+                {/* Row 3: Financial Framework Pricing */}
                 <Text style={styles.rent}>
-                  ₱
-                  {Number(item.monthly_rent).toLocaleString()}
-                  /month
+                  ₱ {Number(item.monthly_rent).toLocaleString()}
+                  <Text style={styles.rentPeriod}> / month</Text>
                 </Text>
               </View>
 
+              {/* Status Badge Pin Container */}
               <View
                 style={[
                   styles.badge,
                   {
                     backgroundColor:
-                      item.rental_status === "Active"
-                        ? "#9CB080"
-                        : "#EF4444",
+                      item.rental_status === "Active" ? "#76ABAE" : "#FF5722",
                   },
                 ]}
               >
-                <Text style={styles.badgeText}>
-                  {item.rental_status}
-                </Text>
+                <Text style={styles.badgeText}>{item.rental_status}</Text>
               </View>
             </TouchableOpacity>
           )}
         />
       )}
 
+      {/* Primary Global Insertion Action Button */}
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() =>
-          router.push("/rentals/add")
-        }
+        onPress={() => router.push("/rentals/add")}
       >
-        <MaterialCommunityIcons
-          name="plus"
-          size={20}
-          color="#fff"
-        />
-
-        <Text style={styles.addButtonText}>
-          New Rental
-        </Text>
+        <MaterialCommunityIcons name="plus" size={20} color="#F5F5F5" />
+        <Text style={styles.addButtonText}>New Rental</Text>
       </TouchableOpacity>
     </View>
   );
@@ -227,151 +199,158 @@ export default function Rentals() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F2F4F7",
-    padding: 16,
-    paddingBottom: 16,
+    backgroundColor: "#F5F5F5",
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-
   center: {
     flex: 1,
+    backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F2F4F7",
   },
-
   filterContainer: {
-    marginBottom: 18,
+    marginBottom: 16,
     padding: 16,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-
   filterLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#273338",
+    color: "#303841",
     marginBottom: 10,
   },
-
   filterRow: {
     flexDirection: "row",
     gap: 10,
   },
-
   filterButton: {
     flex: 1,
-    paddingVertical: 12,
-    backgroundColor: "#F2F4F7",
-    borderWidth: 1,
-    borderColor: "#D1D9D2",
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#F5F5F5",
     alignItems: "center",
+    justifyContent: "center",
   },
-
-  filterButtonLeft: {
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-
-  filterButtonRight: {
-    borderTopRightRadius: 14,
-    borderBottomRightRadius: 14,
-  },
-
   filterButtonActive: {
-    backgroundColor: "#2B5748",
-    borderColor: "#2B5748",
+    backgroundColor: "#303841",
   },
-
   filterButtonText: {
-    color: "#273338",
+    color: "#64748B",
     fontWeight: "700",
+    fontSize: 13,
   },
-
   filterButtonTextActive: {
-    color: "#F2F4F7",
+    color: "#F5F5F5",
   },
-
-  addButton: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 16,
-    backgroundColor: "#2B5748",
-    padding: 15,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+  listContent: {
+    paddingBottom: 100, // Provides extra scroll headroom above absolute action frame
   },
-
-  addButtonText: {
-    color: "#fff",
-    marginLeft: 6,
-    fontWeight: "700",
-  },
-
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginTop: 15,
-    color: "#273338",
-  },
-
-  emptySubtitle: {
-    color: "#618764",
-    marginTop: 8,
-  },
-
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderRadius: 14,
     marginBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
   },
-
+  cardMainContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
   name: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#273338",
+    color: "#303841",
   },
-
-  details: {
-    color: "#618764",
-    marginTop: 2,
-  },
-
-  rent: {
-    color: "#2B5748",
-    fontWeight: "700",
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 6,
   },
-
+  detailsText: {
+    fontSize: 13,
+    color: "#64748B",
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  detailsDot: {
+    fontSize: 13,
+    color: "#BCBCBC",
+    marginHorizontal: 6,
+  },
+  rent: {
+    color: "#303841",
+    fontWeight: "800",
+    fontSize: 16,
+    marginTop: 8,
+  },
+  rentPeriod: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "500",
+  },
   badge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#618764",
   },
-
   badgeText: {
-    color: "#fff",
+    color: "#F5F5F5",
     fontWeight: "700",
+    fontSize: 12,
+  },
+  addButton: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 24,
+    backgroundColor: "#FF5722",
+    padding: 16,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#FF5722",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  addButtonText: {
+    color: "#F5F5F5",
+    marginLeft: 6,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 80,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#303841",
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    color: "#64748B",
+    marginTop: 6,
+    textAlign: "center",
+    paddingHorizontal: 32,
   },
 });

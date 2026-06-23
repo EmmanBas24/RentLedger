@@ -1,16 +1,16 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
@@ -30,14 +30,65 @@ export default function RecordPayment() {
   const [paymentMethod, setPaymentMethod] =
     useState("Cash");
 
+  const [amount, setAmount] =
+    useState("");
+
+  const [expectedAmount, setExpectedAmount] =
+    useState<number | null>(null);
+
   const [referenceNumber, setReferenceNumber] =
     useState("");
 
   const [remarks, setRemarks] =
     useState("");
 
+  useEffect(() => {
+    const fetchExpectedAmount = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from("payments")
+          .select("amount")
+          .eq("id", paymentId)
+          .single();
+
+        if (error) {
+          Alert.alert("Error", error.message);
+          router.back();
+          return;
+        }
+
+        setExpectedAmount(data?.amount ?? null);
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Unable to load payment details.");
+        router.back();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (paymentId) {
+      fetchExpectedAmount();
+    }
+  }, [paymentId]);
+
   const handleSavePayment =
     async () => {
+      if (!amount) {
+        Alert.alert("Validation Error", "Please enter the payment amount.");
+        return;
+      }
+
+      const enteredAmount = Number(amount);
+      if (expectedAmount !== null && enteredAmount < expectedAmount) {
+        Alert.alert(
+          "Validation Error",
+          `Payment amount must be at least ₱${expectedAmount.toLocaleString()}.`
+        );
+        return;
+      }
+
       try {
         setLoading(true);
 
@@ -51,6 +102,7 @@ export default function RecordPayment() {
                 paymentDate,
               payment_method:
                 paymentMethod,
+              amount: enteredAmount,
               reference_number:
                 referenceNumber,
               remarks:
@@ -150,6 +202,29 @@ export default function RecordPayment() {
         />
       </Picker>
 
+      {expectedAmount !== null && (
+        <View>
+          <Text style={styles.label}>
+            Amount Due
+          </Text>
+          <Text style={styles.amountDue}>
+            ₱{expectedAmount.toLocaleString()}
+          </Text>
+        </View>
+      )}
+
+      <Text style={styles.label}>
+        Amount Paid
+      </Text>
+
+      <TextInput
+        value={amount}
+        onChangeText={setAmount}
+        placeholder="Enter amount"
+        keyboardType="numeric"
+        style={styles.input}
+      />
+
       <Text style={styles.label}>
         Reference Number
       </Text>
@@ -248,6 +323,13 @@ const styles =
       fontWeight: "600",
       marginTop: 10,
       marginBottom: 8,
+    },
+
+    amountDue: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: "#111827",
+      marginBottom: 10,
     },
 
     input: {

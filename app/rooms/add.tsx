@@ -1,14 +1,14 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -31,11 +31,18 @@ export default function AddRoom() {
     try {
       setLoading(true);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Error", "User session not found.");
+        return;
+      }
+
       const { error } = await supabase
         .from("rooms")
         .insert([
           {
             asset_id: assetId,
+            user_id: user.id,
             room_number: roomNumber,
             monthly_rent: Number(monthlyRent),
             status: "Available",

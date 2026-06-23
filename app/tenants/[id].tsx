@@ -37,14 +37,27 @@ export default function TenantDetails() {
   }, []);
 
   const fetchTenant = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      Alert.alert("Error", "User session not found.");
+      router.replace("/(auth)/login");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("tenants")
       .select("*")
       .eq("id", id)
+      .eq("user_id", user.id)
       .single();
 
     if (error) {
       console.log(error);
+      Alert.alert("Error", error.message);
+      router.back();
       return;
     }
 
@@ -67,6 +80,15 @@ export default function TenantDetails() {
     try {
       setSaving(true);
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert("Error", "User session not found.");
+        return;
+      }
+
       const { error } = await supabase
         .from("tenants")
         .update({
@@ -79,7 +101,8 @@ export default function TenantDetails() {
           notes,
           status,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) {
         Alert.alert(
@@ -113,11 +136,21 @@ export default function TenantDetails() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+
+            if (!user) {
+              Alert.alert("Error", "User session not found.");
+              return;
+            }
+
             const { error } =
               await supabase
                 .from("tenants")
                 .delete()
-                .eq("id", id);
+                .eq("id", id)
+                .eq("user_id", user.id);
 
             if (error) {
               Alert.alert(

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -55,6 +56,14 @@ export default function Login() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+      <ImageBackground
+        source={{
+          uri: "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
+        }}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+      >
+        <View style={styles.overlay} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -128,6 +137,7 @@ export default function Login() {
           </Link>
         </View>
       </ScrollView>
+      </ImageBackground>
     </KeyboardAvoidingView>
   );
 }
@@ -135,7 +145,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#273338",
+    backgroundColor: "#F5F5F5",
   },
   scrollContent: {
     flexGrow: 1,
@@ -147,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 40,
   },
-  /* --- Logo Styling with the new green palette --- */
+  /* --- Logo Styling with the requested palette --- */
   logoContainer: {
     width: 80,
     height: 80,
@@ -164,7 +174,7 @@ const styles = StyleSheet.create({
   panelLeft: {
     width: 45,
     height: 35,
-    backgroundColor: "#9CB080",
+    backgroundColor: "#76ABAE",
     left: 2,
     bottom: 25,
     zIndex: 1,
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
   panelTop: {
     width: 40,
     height: 40,
-    backgroundColor: "#618764",
+    backgroundColor: "#303841",
     top: 5,
     right: 12,
     zIndex: 2,
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
   panelRight: {
     width: 45,
     height: 40,
-    backgroundColor: "#2B5748",
+    backgroundColor: "#FF5722",
     right: 2,
     bottom: 8,
     zIndex: 3,
@@ -189,18 +199,18 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#F2F4F7",
+    color: "#303841",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "#9CB080",
+    color: "#76ABAE",
     marginTop: 6,
     fontWeight: "400",
   },
   formSection: {
     marginBottom: 24,
-    backgroundColor: "#F2F4F7",
+    backgroundColor: "#FFFFFF",
     borderRadius: 22,
     padding: 24,
     shadowColor: "#000000",
@@ -215,25 +225,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#273338",
+    color: "#303841",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#D1D9D2",
+    borderColor: "#76ABAE",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: "#273338",
+    color: "#303841",
     backgroundColor: "#FFFFFF",
   },
   inputFocused: {
-    borderColor: "#2B5748",
+    borderColor: "#303841",
     backgroundColor: "#FFFFFF",
   },
   button: {
-    backgroundColor: "#2B5748",
+    backgroundColor: "#303841",
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: "center",
@@ -249,7 +259,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#F2F4F7",
+    color: "#F5F5F5",
     fontWeight: "700",
     fontSize: 16,
   },
@@ -259,11 +269,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#F2F4F7",
+    color: "#303841",
   },
   linkText: {
     fontSize: 14,
-    color: "#618764",
+    color: "#FF5722",
     fontWeight: "700",
     marginTop: 4,
   },
@@ -280,5 +290,15 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     paddingRight: 44,
+  },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 0.24,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(245, 245, 245, 0.75)",
   },
 });

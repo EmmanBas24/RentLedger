@@ -1,14 +1,14 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -31,16 +31,30 @@ export default function AddProperty() {
     try {
       setLoading(true);
 
-      const { error } = await supabase
-        .from("assets")
-        .insert([
-          {
-            property_name: propertyName,
-            property_type: propertyType,
-            address,
-            description,
-          },
-        ]);
+    const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  Alert.alert(
+    "Error",
+    "User session not found."
+  );
+  return;
+}
+
+const { error } = await supabase
+  .from("assets")
+  .insert([
+    {
+      user_id: user.id,
+
+      property_name: propertyName,
+      property_type: propertyType,
+      address,
+      description,
+    },
+  ]);
 
       if (error) {
         Alert.alert("Error", error.message);

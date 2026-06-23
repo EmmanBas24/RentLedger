@@ -12,11 +12,13 @@ export default function Assets(){ const [assets,setAssets]=useState<Asset[]>([])
 
   const fetchRoomCounts=async(assets: Asset[])=>{ const ids = assets.map(asset => asset.id); if(ids.length === 0){ setAvailableCounts({}); return; } const { data: roomData, error: roomError } = await supabase.from("rooms").select("asset_id,status").in("asset_id", ids); if(roomError){ console.log(roomError); setAvailableCounts({}); return; } const counts = (roomData || []).reduce((acc: Record<string, number>, room: any) => { if(room.status === "Available"){ acc[room.asset_id] = (acc[room.asset_id] || 0) + 1; } return acc; }, {}); setAvailableCounts(counts); };
 
-  const fetchAssets=async()=>{ try{ const {data,error}=await supabase.from("assets").select("*").order("created_at",{ ascending:false }); if(error){ console.log(error); return } const assetsData = data || []; setAssets(assetsData); await fetchRoomCounts(assetsData); }catch(err){ console.log(err) }finally{ setLoading(false); setRefreshing(false) } };
+  const fetchAssets=async()=>{ try{ const { data: { user } } = await supabase.auth.getUser(); if (!user) { setAssets([]); setAvailableCounts({}); return; }
+      const {data,error}=await supabase.from("assets").select("*").eq("user_id", user.id).order("created_at",{ ascending:false }); if(error){ console.log(error); return } const assetsData = data || []; setAssets(assetsData); await fetchRoomCounts(assetsData); }catch(err){ console.log(err) }finally{ setLoading(false); setRefreshing(false) } };
 
   const handleRefresh=()=>{ setRefreshing(true); fetchAssets() };
 
-  const handleSaveProperty=async()=>{ if(!propertyName||!propertyType||!address){ Alert.alert("Missing Information","Please complete all required fields."); return } try{ setSavingProperty(true); const { error } = await supabase.from("assets").insert([{ property_name:propertyName, property_type:propertyType, address, description }]); if(error){ Alert.alert("Error", error.message); return } setPropertyName(""); setPropertyType(""); setAddress(""); setDescription(""); setShowAddModal(false); fetchAssets(); }catch(err){ console.log(err); Alert.alert("Error","Something went wrong.") }finally{ setSavingProperty(false) } };
+  const handleSaveProperty=async()=>{ if(!propertyName||!propertyType||!address){ Alert.alert("Missing Information","Please complete all required fields."); return } try{ setSavingProperty(true); const { data: { user } } = await supabase.auth.getUser(); if (!user) { Alert.alert("Error", "User session not found."); setSavingProperty(false); return; }
+      const { error } = await supabase.from("assets").insert([{ user_id: user.id, property_name:propertyName, property_type:propertyType, address, description }]); if(error){ Alert.alert("Error", error.message); return } setPropertyName(""); setPropertyType(""); setAddress(""); setDescription(""); setShowAddModal(false); fetchAssets(); }catch(err){ console.log(err); Alert.alert("Error","Something went wrong.") }finally{ setSavingProperty(false) } };
 
   const filteredAssets=assets.filter(asset=>{ const q=searchQuery.trim().toLowerCase(); if(!q) return true; return [asset.property_name,asset.property_type,asset.address,asset.description].join(" ").toLowerCase().includes(q) });
 
@@ -76,4 +78,213 @@ export default function Assets(){ const [assets,setAssets]=useState<Asset[]>([])
   );
 }
 
-const styles=StyleSheet.create({ container:{ flex:1, backgroundColor:"#F2F4F7", padding:16, paddingBottom:110 }, center:{ flex:1, justifyContent:"center", alignItems:"center", backgroundColor:"#F2F4F7" }, addButton:{ position:"absolute", left:16, right:16, bottom:20, backgroundColor:"#2B5748", padding:15, borderRadius:14, flexDirection:"row", justifyContent:"center", alignItems:"center", zIndex:20 }, addButtonText:{ color:"#fff", fontWeight:"700", marginLeft:6, fontSize:16 }, card:{ backgroundColor:"#ffffff", borderWidth:2, borderColor:"#D1D9D2", padding:16, borderRadius:14, marginBottom:12, flexDirection:"row", alignItems:"center" }, iconContainer:{ width:50, height:50, borderRadius:12, backgroundColor:"#9CB080", justifyContent:"center", alignItems:"center", marginRight:12 }, cardContent:{ flex:1 }, propertyName:{ fontSize:16, fontWeight:"700", color:"#273338" }, propertyType:{ color:"#2B5748", fontWeight:"600", marginTop:2 }, address:{ color:"#618764", marginTop:4 }, availableRoomsText:{ marginTop:8, fontSize:13, fontWeight:"700" }, availableText:{ color:"#2B5748" }, unavailableText:{ color:"#6B7280" }, emptyContainer:{ flex:1, justifyContent:"center", alignItems:"center", paddingTop:60 }, emptyTitle:{ fontSize:20, fontWeight:"700", marginTop:15, color:"#273338" }, searchContainer:{ marginBottom:16 }, searchInput:{ backgroundColor:"#ffffff", borderColor:"#D1D9D2", borderWidth:2, borderRadius:14, paddingHorizontal:16, paddingVertical:12, color:"#273338", fontSize:16 }, labelRow:{ flexDirection:"row", alignItems:"center", marginBottom:8 }, label:{ marginBottom:8, fontWeight:"600", color:"#0f172a" }, overlay:{ flex:1, backgroundColor:"rgba(0,0,0,0.45)", justifyContent:"center", padding:20 }, modalContainer:{ backgroundColor:"#F2F4F7", borderRadius:24, padding:20, shadowColor:"#000", shadowOffset:{ width:0, height:12 }, shadowOpacity:0.2, shadowRadius:16, elevation:20 }, modalHeader:{ flexDirection:"row", justifyContent:"space-between", alignItems:"center", marginBottom:16 }, modalTitle:{ fontSize:20, fontWeight:"700", color:"#273338" }, closeButton:{ width:40, height:40, borderRadius:12, backgroundColor:"#2B5748", justifyContent:"center", alignItems:"center" }, modalInput:{ backgroundColor:"#ffffff", borderWidth:1, borderColor:"#2B5748", borderRadius:14, padding:14, marginBottom:16, color:"#273338" }, modalDescription:{ minHeight:100 }, modalSaveButton:{ backgroundColor:"#2B5748", padding:16, borderRadius:14, alignItems:"center" }, modalSaveText:{ color:"#ffffff", fontWeight:"700", fontSize:16 }, emptySubtitle:{ color:"#618764", marginTop:8, textAlign:"center", paddingHorizontal:30 } });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    padding: 16,
+    paddingBottom: 110,
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+  },
+
+  addButton: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 20,
+    backgroundColor: "#76ABAE",
+    padding: 15,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
+
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    marginLeft: 6,
+    fontSize: 16,
+  },
+
+  card: {
+    backgroundColor: "#ffffff",
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  iconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#76ABAE",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  cardContent: {
+    flex: 1,
+  },
+
+  propertyName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#303841",
+  },
+
+  propertyType: {
+    color: "#76ABAE",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  address: {
+    color: "#303841",
+    opacity: 0.75,
+    marginTop: 4,
+  },
+
+  availableRoomsText: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  availableText: {
+    color: "#76ABAE",
+  },
+
+  unavailableText: {
+    color: "#303841",
+    opacity: 0.6,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 60,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 15,
+    color: "#303841",
+  },
+
+  emptySubtitle: {
+    color: "#303841",
+    opacity: 0.7,
+    marginTop: 8,
+    textAlign: "center",
+    paddingHorizontal: 30,
+  },
+
+  searchContainer: {
+    marginBottom: 16,
+  },
+
+  searchInput: {
+    backgroundColor: "#ffffff",
+    borderColor: "#E0E0E0",
+    borderWidth: 2,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: "#303841",
+    fontSize: 16,
+  },
+
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  label: {
+    marginBottom: 8,
+    fontWeight: "600",
+    color: "#303841",
+  },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 20,
+  },
+
+  modalContainer: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#303841",
+  },
+
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#303841",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  modalInput: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#76ABAE",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    color: "#303841",
+  },
+
+  modalDescription: {
+    minHeight: 100,
+  },
+
+  modalSaveButton: {
+    backgroundColor: "#76ABAE",
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+
+  modalSaveText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+});

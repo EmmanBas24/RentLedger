@@ -2,16 +2,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../src/lib/supabase";
 
@@ -50,10 +50,18 @@ export default function PropertyDetails() {
   }, []);
 
   const fetchProperty = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Error", "User session not found.");
+      router.back();
+      return;
+    }
+
     const { data, error } = await supabase
       .from("assets")
       .select("*")
       .eq("id", id)
+      .eq("user_id", user.id)
       .single();
 
     if (!error) {
@@ -75,6 +83,17 @@ export default function PropertyDetails() {
     setLoading(false);
   };
 
+  const handleEditProperty = () => {
+    if (!id) {
+      return;
+    }
+
+    router.push({
+      pathname: "/assets/edit",
+      params: { id },
+    });
+  };
+
   const handleDeleteProperty = async () => {
     Alert.alert(
       "Delete Property",
@@ -88,10 +107,17 @@ export default function PropertyDetails() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+              Alert.alert("Error", "User session not found.");
+              return;
+            }
+
             const { error } = await supabase
               .from("assets")
               .delete()
-              .eq("id", id);
+              .eq("id", id)
+              .eq("user_id", user.id);
 
             if (error) {
               Alert.alert(
@@ -199,7 +225,18 @@ export default function PropertyDetails() {
 
         <Text style={styles.pageTitle}>Property Details</Text>
 
-        <View style={styles.headerRight} />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleEditProperty}
+          >
+            <MaterialCommunityIcons
+              name="square-edit-outline"
+              size={18}
+              color="#ffffff"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -406,6 +443,16 @@ const styles = StyleSheet.create({
 
   headerRight: {
     width: 60,
+    alignItems: "flex-end",
+  },
+
+  editButton: {
+    width: 42,
+    height: 42,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: "#2B5748",
   },
 
   overlay: {

@@ -37,19 +37,26 @@ export default function AddTenant() {
     try {
       setLoading(true);
 
-     const { error } = await supabase
-  .from("tenants")
-  .insert([
-    {
-      full_name: fullName,
-      contact_number: contactNumber,
-      email,
-      address,
-      emergency_contact: emergencyContact,
-      notes,
-      status: "Active",
-    },
-  ]);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Error", "User session not found.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("tenants")
+        .insert([
+          {
+            user_id: user.id,
+            full_name: fullName,
+            contact_number: contactNumber,
+            email,
+            address,
+            emergency_contact: emergencyContact,
+            notes,
+            status: "Inactive",
+          },
+        ]);
 
       if (error) {
         Alert.alert("Error", error.message);

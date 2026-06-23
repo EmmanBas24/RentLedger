@@ -32,9 +32,19 @@ export default function Tenants() {
 
   const fetchTenants = async () => {
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setTenants([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", {
           ascending: false,
         });

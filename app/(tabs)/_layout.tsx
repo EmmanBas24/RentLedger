@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { colors } from "../../src/lib/theme";
 
 export default function TabLayout() {
   return (
@@ -8,32 +9,32 @@ export default function TabLayout() {
         headerShown: true,
 
         headerStyle: {
-          backgroundColor: "#273338",
+          backgroundColor: colors.header,
           borderBottomWidth: 1,
-          borderBottomColor: "#2B5748",
+          borderBottomColor: colors.primary,
           shadowColor: "transparent",
         },
 
         headerTitleStyle: {
           fontSize: 20,
           fontWeight: "800",
-          color: "#F2F4F7",
+          color: colors.headerText,
           letterSpacing: -0.5,
         },
 
         headerShadowVisible: false,
         tabBarShowLabel: false,
 
-        tabBarActiveTintColor: "#2B5748",
-        tabBarInactiveTintColor: "#618764",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.text,
 
         tabBarStyle: {
           height: 72,
           paddingTop: 8,
           paddingBottom: 14,
           borderTopWidth: 1,
-          borderTopColor: "#D1D9D2",
-          backgroundColor: "#F2F4F7",
+          borderTopColor: colors.border,
+          backgroundColor: colors.background,
           elevation: 0,
         },
 
