@@ -90,13 +90,13 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="reports"
+        name="payments"
         options={{
-          title: "Reports",
-          headerTitle: "Reports & Analytics",
+          title: "Payments",
+          headerTitle: "Payments Module",
           tabBarIcon: ({ color, size, focused }) => (
             <MaterialCommunityIcons
-              name={focused ? "chart-box" : "chart-box-outline"}
+              name={focused ? "cash-multiple" : "cash-multiple"}
               size={size - 1}
               color={focused ? "#000000" : color}
             />
