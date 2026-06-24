@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
 
 interface Rental {
@@ -26,17 +27,19 @@ export default function Rentals() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // UPDATED: Changed technical state constraint type from 'Completed' to 'Ended'
   const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Ended">("Active");
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchRentals();
-    }, [])
-  );
 
   const fetchRentals = async () => {
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !userData?.user) {
+        console.log("Authentication error or no session found:", userError);
+        return;
+      }
+
+      const userId = userData.user.id;
+
       const { data, error } = await supabase
         .from("rentals")
         .select(`
@@ -45,12 +48,13 @@ export default function Rentals() {
           assets(property_name),
           rooms(room_number)
         `)
+        .eq("user_id", userId)
         .order("created_at", {
           ascending: false,
         });
 
       if (error) {
-        console.log(error);
+        console.log("Fetch Error: ", error);
         return;
       }
 
@@ -73,6 +77,12 @@ export default function Rentals() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchRentals();
+    }, [])
+  );
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchRentals();
@@ -84,6 +94,12 @@ export default function Rentals() {
       : item.rental_status === filterStatus
   );
 
+  // High-Level Portfolio Calculations
+  const activeRentalsCount = rentals.filter((r) => r.rental_status === "Active").length;
+  const activeMonthlyRevenue = rentals
+    .filter((r) => r.rental_status === "Active")
+    .reduce((sum, current) => sum + Number(current.monthly_rent), 0);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -93,12 +109,40 @@ export default function Rentals() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Dynamic Segmented Filter Control */}
-      <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>Filter rentals</Text>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <View style={styles.container}>
+        {/* Premium Dashboard Hero Header Card */}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Rental Overview</Text>
+          
+          <View style={styles.heroMainGrid}>
+            <View style={styles.heroPrimaryMetric}>
+              <Text style={styles.heroMetricNumber}>{activeRentalsCount}</Text>
+              <Text style={styles.heroMetricLabel}>Active occupancies</Text>
+            </View>
+            
+            <View style={styles.heroDivider} />
+
+            <View style={styles.heroSecondaryMetrics}>
+              <View style={styles.subMetricRow}>
+                <View style={[styles.indicatorDot, { backgroundColor: "#2E7D32" }]} />
+                <Text style={styles.subMetricLabel}>Est. Revenue:</Text>
+                <Text style={[styles.subMetricValue, { color: "#2E7D32" }]}>
+                  ₱{activeMonthlyRevenue.toLocaleString()}
+                </Text>
+              </View>
+              
+              <View style={styles.subMetricRow}>
+                <View style={[styles.indicatorDot, { backgroundColor: "#76ABAE" }]} />
+                <Text style={styles.subMetricLabel}>Total Entries:</Text>
+                <Text style={styles.subMetricValue}>{rentals.length}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Modern Segmented Filter Row */}
         <View style={styles.filterRow}>
-          {/* UPDATED: Map array values to match database layout ["Active", "Ended"] */}
           {(["Active", "Ended"] as const).map((status) => (
             <TouchableOpacity
               key={status}
@@ -114,170 +158,257 @@ export default function Rentals() {
                   filterStatus === status && styles.filterButtonTextActive,
                 ]}
               >
-                {/* UPDATED: Dynamic labeling transforms for localized display updates */}
-                {status === "Active" ? "Active Rentals" : "Past Rentals"}
+                {status === "Active" ? "Active Rentals" : "Past History"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-      </View>
 
-      {/* Render Content */}
-      {filteredRentals.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="key-chain-variant"
-            size={80}
-            color="#76ABAE"
-          />
-          <Text style={styles.emptyTitle}>No rentals found</Text>
-          <Text style={styles.emptySubtitle}>
-            Try another filter or add a new rental.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredRentals}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#76ABAE"
+        {/* Main List Area */}
+        {filteredRentals.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+              name="key-chain-variant"
+              size={60}
+              color="#CBD5E1"
             />
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => router.push(`/rentals/${item.id}`)}
-            >
-              <View style={styles.cardMainContent}>
-                {/* Row 1: Tenant Frame */}
-                <Text style={styles.name}>{item.tenant_name}</Text>
-
-                {/* Row 2: Location Subtitle Details */}
-                <View style={styles.locationContainer}>
-                  <MaterialCommunityIcons name="office-building" size={14} color="#64748B" />
-                  <Text style={styles.detailsText}>{item.property_name}</Text>
-                  <Text style={styles.detailsDot}>•</Text>
-                  <Text style={styles.detailsText}>Room {item.room_number}</Text>
-                </View>
-
-                {/* Row 3: Financial Framework Pricing */}
-                <Text style={styles.rent}>
-                  ₱ {Number(item.monthly_rent).toLocaleString()}
-                  <Text style={styles.rentPeriod}> / month</Text>
-                </Text>
-              </View>
-
-              {/* Status Badge Pin Container */}
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor:
-                      item.rental_status === "Active" ? "#76ABAE" : "#FF5722",
-                  },
-                ]}
+            <Text style={styles.emptyTitle}>No Active Rents</Text>
+            <Text style={styles.emptySubtitle}>
+              Adjust your active selection filters or configure a new assignment entry below.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredRentals}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#76ABAE"
+              />
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/rentals/${item.id}`)}
               >
-                <Text style={styles.badgeText}>{item.rental_status}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {item.tenant_name}
+                    </Text>
+                    
+                    <View
+                      style={[
+                        styles.badge,
+                        item.rental_status === "Active" ? styles.badgeActive : styles.badgeInactive,
+                      ]}
+                    >
+                      <View style={[styles.dot, item.rental_status === "Active" ? styles.dotActive : styles.dotInactive]} />
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          item.rental_status === "Active" ? styles.textActive : styles.textInactive,
+                        ]}
+                      >
+                        {item.rental_status}
+                      </Text>
+                    </View>
+                  </View>
 
-      {/* Primary Global Insertion Action Button */}
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => router.push("/rentals/add")}
-      >
-        <MaterialCommunityIcons name="plus" size={20} color="#F5F5F5" />
-        <Text style={styles.addButtonText}>New Rental</Text>
-      </TouchableOpacity>
-    </View>
+                  <View style={styles.locationContainer}>
+                    <MaterialCommunityIcons name="office-building" size={13} color="#64748B" />
+                    <Text style={styles.detailsText} numberOfLines={1}>
+                      {item.property_name}
+                    </Text>
+                    <Text style={styles.detailsDot}>•</Text>
+                    <Text style={styles.detailsText}>Room {item.room_number}</Text>
+                  </View>
+
+                  <View style={styles.cardBottomRow}>
+                    <Text style={styles.rent}>
+                      ₱ {Number(item.monthly_rent).toLocaleString()}
+                      <Text style={styles.rentPeriod}> / month</Text>
+                    </Text>
+                    <MaterialCommunityIcons name="arrow-right" size={16} color="#76ABAE" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+
+        {/* Flat Bottom Action Strip */}
+        <TouchableOpacity
+          style={styles.addButton}
+          activeOpacity={0.9}
+          onPress={() => router.push("/rentals/add")}
+        >
+          <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add New Rental</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8, // Synced to match the 8px top padding of tenant layout inside the safe area
   },
   center: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
   },
-  filterContainer: {
+  /* --- Premium Hero Card Block --- */
+  heroCard: {
+    backgroundColor: "#303841",
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
     shadowColor: "#303841",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  filterLabel: {
-    fontSize: 14,
+  heroTitle: {
+    color: "#94A3B8",
+    fontSize: 12,
     fontWeight: "700",
-    color: "#303841",
-    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 12,
   },
+  heroMainGrid: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  heroPrimaryMetric: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  heroMetricNumber: {
+    color: "#FFFFFF",
+    fontSize: 40,
+    fontWeight: "800",
+    letterSpacing: -1,
+  },
+  heroMetricLabel: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  heroDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: "rgba(226, 232, 240, 0.15)",
+    marginHorizontal: 16,
+  },
+  heroSecondaryMetrics: {
+    flex: 1.5,
+    gap: 8,
+  },
+  subMetricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  indicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  subMetricLabel: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "500",
+    flex: 1,
+  },
+  subMetricValue: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+  /* --- Modern Filter Buttons Row --- */
   filterRow: {
     flexDirection: "row",
-    gap: 10,
+    backgroundColor: "#F1F5F9",
+    padding: 4,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 4,
   },
   filterButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: "#F5F5F5",
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
   filterButtonActive: {
-    backgroundColor: "#303841",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   filterButtonText: {
-    color: "#64748B",
-    fontWeight: "700",
     fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
   },
   filterButtonTextActive: {
-    color: "#F5F5F5",
+    color: "#1E293B",
+    fontWeight: "700",
   },
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 90,
   },
+  /* --- Minimal Elegant Cards --- */
   card: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#303841",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardMainContent: {
-    flex: 1,
-    paddingRight: 12,
+    gap: 8,
   },
   name: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#303841",
+    color: "#1E293B",
+    flex: 1,
   },
   locationContainer: {
     flexDirection: "row",
@@ -292,69 +423,102 @@ const styles = StyleSheet.create({
   },
   detailsDot: {
     fontSize: 13,
-    color: "#BCBCBC",
+    color: "#CBD5E1",
     marginHorizontal: 6,
   },
+  cardBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderColor: "#F1F5F9",
+  },
   rent: {
-    color: "#303841",
+    color: "#1E293B",
     fontWeight: "800",
     fontSize: 16,
-    marginTop: 8,
   },
   rentPeriod: {
     color: "#64748B",
     fontSize: 13,
     fontWeight: "500",
   },
+  /* --- Minimal Status Badges --- */
   badge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 20,
   },
-  badgeText: {
-    color: "#F5F5F5",
-    fontWeight: "700",
-    fontSize: 12,
+  badgeActive: {
+    backgroundColor: "#E8F5E9",
   },
+  badgeInactive: {
+    backgroundColor: "#F1F5F9",
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  dotActive: { backgroundColor: "#2E7D32" },
+  dotInactive: { backgroundColor: "#64748B" },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  textActive: {
+    color: "#2E7D32",
+  },
+  textInactive: {
+    color: "#475569",
+  },
+  /* --- Button Layout Strip --- */
   addButton: {
     position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 24,
-    backgroundColor: "#FF5722",
-    padding: 16,
+    left: 20,
+    right: 20,
+    bottom: 20,
+    backgroundColor: "#303841",
+    paddingVertical: 14,
     borderRadius: 14,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#FF5722",
+    gap: 6,
+    shadowColor: "#303841",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
     elevation: 4,
   },
   addButtonText: {
-    color: "#F5F5F5",
-    marginLeft: 6,
+    color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 15,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: 80,
+    paddingBottom: 100,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#303841",
-    marginTop: 16,
+    marginTop: 12,
+    color: "#475569",
   },
   emptySubtitle: {
-    color: "#64748B",
-    marginTop: 6,
+    color: "#94A3B8",
+    marginTop: 4,
     textAlign: "center",
-    paddingHorizontal: 32,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

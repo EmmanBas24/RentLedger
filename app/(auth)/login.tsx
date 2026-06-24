@@ -76,7 +76,7 @@ export default function Login() {
             <View style={[styles.logoPanel, styles.panelRight]} />
           </View>
           <Text style={styles.logoText}>RentLedger</Text>
-          <Text style={styles.subtitle}>Welcome back to your rental dashboard</Text>
+          <Text style={styles.subtitle}>The modern property ledger for Filipino landlords</Text>
         </View>
 
         <View style={styles.formSection}>

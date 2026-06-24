@@ -77,7 +77,7 @@ export default function RentalDetails() {
         .from("payments")
         .select("*")
         .eq("rental_id", rentalId)
-        .order("created_at", { ascending: false });
+        .order("due_date", { ascending: false });
 
       if (error) {
         console.log(error);
@@ -115,47 +115,15 @@ export default function RentalDetails() {
     }
   };
 
-  // UPDATED: Added the explicit monthly room fee itemization inside the HTML template
-  const generateReceiptPDF = async (amountPaid: number, isInitialMoveIn: boolean = false) => {
+  const generateReceiptPDF = async (paymentItem: any) => {
     const receiptId = `REC-${Math.floor(100000 + Math.random() * 900000)}`;
-    const dateString = new Date().toLocaleDateString("en-PH", {
+    const dateString = new Date(paymentItem.payment_date || new Date()).toLocaleDateString("en-PH", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
 
-    const monthlyRentRate = Number(rental.monthly_rent) || 0;
-    let tableRowsHtml = "";
-    let totalReceiptAmount = 0;
-
-    if (isInitialMoveIn) {
-      const advanceValue = Number(rental.advance_payment) || 0;
-      totalReceiptAmount = advanceValue;
-      const monthsCovered = monthlyRentRate > 0 ? Math.floor(advanceValue / monthlyRentRate) : 1;
-
-      tableRowsHtml = `
-        <tr>
-          <td>Standard Monthly Room Fee Base Rate</td>
-          <td style="text-align: right; vertical-align: middle;">₱${monthlyRentRate.toLocaleString()} / mo</td>
-        </tr>
-        <tr>
-          <td>Initial Advance Rent Deposit Package<br/><small style="color: #64748B;">Prepaid Coverage Duration: ${monthsCovered} Months</small></td>
-          <td style="text-align: right; vertical-align: middle; font-weight: 600; color: #2E5052;">₱${advanceValue.toLocaleString()}</td>
-        </tr>
-      `;
-    } else {
-      totalReceiptAmount = amountPaid;
-      tableRowsHtml = `
-        <tr>
-          <td>Standard Monthly Room Fee Base Rate</td>
-          <td style="text-align: right;">₱${monthlyRentRate.toLocaleString()}</td>
-        </tr>
-        <tr style="background-color: #F8FAFC;">
-          <td>Current Statement Period Allocation Billing</td>
-          <td style="text-align: right; font-weight: 600;">₱${amountPaid.toLocaleString()}</td>
-        </tr>
-      `;
-    }
+    const amountCharged = Number(paymentItem.amount) || 0;
 
     const htmlContent = `
       <html>
@@ -176,7 +144,6 @@ export default function RentalDetails() {
             th { background-color: #303841; color: white; padding: 12px; font-size: 14px; }
             td { padding: 12px; border-bottom: 1px solid #E2E8F0; font-size: 14px; line-height: 1.4; }
             .total-row { font-weight: bold; font-size: 16px; background-color: #EBF5F6; color: #2E5052; }
-            .footer { margin-top: 60px; text-align: center; color: #94A3B8; font-size: 12px; }
           </style>
         </head>
         <body>
@@ -217,10 +184,14 @@ export default function RentalDetails() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${tableRowsHtml}
+                  <tr>
+                    <td>Rental Billing Allocation Month: ${paymentItem.billing_month || "Statement Period"}<br/>
+                    <small style="color: #64748B;">Payment Method: ${paymentItem.payment_method || "N/A"}</small></td>
+                    <td style="text-align: right; vertical-align: middle;">₱${amountCharged.toLocaleString()}</td>
+                  </tr>
                   <tr class="total-row">
                     <td>Total Handed Balance Settled</td>
-                    <td style="text-align: right;">₱${totalReceiptAmount.toLocaleString()}</td>
+                    <td style="text-align: right;">₱${amountCharged.toLocaleString()}</td>
                   </tr>
                 </tbody>
               </table>
@@ -243,11 +214,19 @@ export default function RentalDetails() {
   };
 
   const handlePayRent = async () => {
-    const amountToPay = rental.monthly_rent;
+    // Find oldest unpaid item to collect payment on
+    const upcomingBillItem = [...payments]
+      .reverse()
+      .find((item) => item.payment_status === "Due" || item.payment_status === "Overdue");
+
+    if (!upcomingBillItem) {
+      Alert.alert("No Balance Due", "This rental account contains no active pending open billing periods.");
+      return;
+    }
 
     Alert.alert(
       "Confirm Payment",
-      `Receive payment of ₱${Number(amountToPay).toLocaleString()} for this rental?`,
+      `Process payment of ₱${Number(upcomingBillItem.amount).toLocaleString()} for ${upcomingBillItem.billing_month}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -259,18 +238,43 @@ export default function RentalDetails() {
                 data: { user },
               } = await supabase.auth.getUser();
 
-              const { error } = await supabase.from("payments").insert({
-                rental_id: rental.id,
-                amount: amountToPay,
-                payment_status: "Paid",
-                user_id: user?.id,
-              });
+              // Update current row to Paid
+              const { error } = await supabase
+                .from("payments")
+                .update({
+                  payment_status: "Paid",
+                  payment_date: new Date().toISOString().split("T")[0],
+                  payment_method: "Cash",
+                })
+                .eq("id", upcomingBillItem.id)
+                .eq("user_id", user?.id);
 
               if (error) throw error;
 
-              await fetchPaymentSummary(rental.id);
+              // FIXED SEQUENCE GENERATION: Check what the max existing due date in your payment list is
+              // This guarantees we only append months *after* the furthest registered bill record.
+              const chronologicalPayments = [...payments].sort(
+                (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+              );
+              const highestBillRecord = chronologicalPayments[chronologicalPayments.length - 1];
 
-              const isFirstPayment = payments.length === 0 && Number(rental.advance_payment) > 0;
+              const baseDate = new Date(highestBillRecord ? highestBillRecord.due_date : upcomingBillItem.due_date);
+              baseDate.setMonth(baseDate.getMonth() + 1);
+
+              const nextBillingStr = baseDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+              const nextDueDateStr = baseDate.toISOString().split("T")[0];
+
+              // Insert next statement schedule entry safely
+              await supabase.from("payments").insert({
+                rental_id: rental.id,
+                user_id: user?.id,
+                billing_month: nextBillingStr,
+                amount: upcomingBillItem.amount,
+                due_date: nextDueDateStr,
+                payment_status: "Due",
+              });
+
+              await fetchPaymentSummary(rental.id);
 
               Alert.alert(
                 "Success", 
@@ -280,7 +284,7 @@ export default function RentalDetails() {
                   { 
                     text: "Generate Receipt", 
                     style: "default", 
-                    onPress: () => generateReceiptPDF(amountToPay, isFirstPayment) 
+                    onPress: () => generateReceiptPDF({ ...upcomingBillItem, payment_status: "Paid", payment_method: "Cash" }) 
                   }
                 ]
               );
@@ -308,13 +312,21 @@ export default function RentalDetails() {
             try {
               setLoading(true);
 
-              const { error } = await supabase
+              const { error: rentalError } = await supabase
                 .from("rentals")
                 .update({ rental_status: "Ended" })
                 .eq("id", id)
                 .eq("user_id", rental.user_id);
 
-              if (error) throw error;
+              if (rentalError) throw rentalError;
+
+              const { error: deletePaymentsError } = await supabase
+                .from("payments")
+                .delete()
+                .eq("rental_id", id)
+                .in("payment_status", ["Due", "Overdue"]);
+
+              if (deletePaymentsError) throw deletePaymentsError;
 
               await supabase
                 .from("rooms")
@@ -326,7 +338,7 @@ export default function RentalDetails() {
                 .update({ status: "Inactive" })
                 .eq("id", rental.tenant_id);
 
-              Alert.alert("Success", "Rental ended successfully.");
+              Alert.alert("Success", "Rental ended and outstanding dues deleted successfully.");
               router.back();
             } catch (error: any) {
               console.log(error);
@@ -340,43 +352,17 @@ export default function RentalDetails() {
     );
   };
 
-  const getNextMonthDueDate = (moveInDateString: string, monthlyRent: number, advancePayment: number) => {
-    if (!moveInDateString) return "N/A";
-    const baseDate = new Date(moveInDateString);
-    if (isNaN(baseDate.getTime())) return "N/A";
-    
-    const rent = Number(monthlyRent) || 1; 
-    const advance = Number(advancePayment) || 0;
+  const activeUpcomingBill = [...payments]
+    .reverse()
+    .find((item) => item.payment_status === "Due" || item.payment_status === "Overdue");
 
-    const monthsCovered = advance > 0 ? Math.floor(advance / rent) : 1;
-    baseDate.setMonth(baseDate.getMonth() + monthsCovered);
-    
-    return baseDate.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  if (loading) {
+if (loading || !rental) {
     return (
-      <View style={styles.center}>
+      <SafeAreaView style={styles.center}>
         <ActivityIndicator size="large" color="#76ABAE" />
-      </View>
+      </SafeAreaView>
     );
   }
-
-  if (!rental) {
-    return (
-      <View style={styles.center}>
-        <Text style={{ color: "#303841" }}>Rental not found.</Text>
-      </View>
-    );
-  }
-
-  const displayPaidAmount = paymentSummary.paidAmount > 0 
-    ? paymentSummary.paidAmount 
-    : (Number(rental.advance_payment) || 0);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -432,8 +418,8 @@ export default function RentalDetails() {
         {/* Financial Overview Metrics */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel} numberOfLines={1}>Paid</Text>
-            <Text style={styles.summaryValue}>₱{displayPaidAmount.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel} numberOfLines={1}>Paid Total</Text>
+            <Text style={styles.summaryValue}>₱{paymentSummary.paidAmount.toLocaleString()}</Text>
           </View>
 
           <View style={styles.summaryCard}>
@@ -443,25 +429,29 @@ export default function RentalDetails() {
         </View>
 
         {/* High-visibility Upcoming Bill Schedule Notice Segment */}
-        {rental.rental_status === "Active" && (
+        {rental.rental_status === "Active" && activeUpcomingBill && (
           <View style={styles.upcomingCard}>
             <View style={styles.upcomingLeft}>
               <View style={styles.upcomingIconContainer}>
                 <MaterialCommunityIcons name="calendar-alert" size={22} color="#76ABAE" />
               </View>
               <View style={styles.upcomingTextGroup}>
-                <Text style={styles.upcomingTitle}>Next Bill Due</Text>
+                <Text style={styles.upcomingTitle}>Next Bill Due ({activeUpcomingBill.billing_month})</Text>
                 <Text style={styles.upcomingSubtitle}>
-                  {getNextMonthDueDate(rental.move_in_date, rental.monthly_rent, rental.advance_payment)}
+                  {new Date(activeUpcomingBill.due_date).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </Text>
               </View>
             </View>
-            <Text style={styles.upcomingPrice}>₱{Number(rental.monthly_rent).toLocaleString()}</Text>
+            <Text style={styles.upcomingPrice}>₱{Number(activeUpcomingBill.amount).toLocaleString()}</Text>
           </View>
         )}
 
         {/* Action CTA Bar Frame for Payment processing */}
-        {rental.rental_status === "Active" && (
+        {rental.rental_status === "Active" && activeUpcomingBill && (
           <TouchableOpacity 
             style={[styles.payButton, paying && { opacity: 0.7 }]} 
             onPress={handlePayRent}
@@ -472,7 +462,7 @@ export default function RentalDetails() {
             ) : (
               <>
                 <MaterialCommunityIcons name="cash-register" size={20} color="#FFF" />
-                <Text style={styles.payButtonText}>Collect / Pay Rent</Text>
+                <Text style={styles.payButtonText}>Collect Rent Summary</Text>
               </>
             )}
           </TouchableOpacity>
@@ -484,7 +474,7 @@ export default function RentalDetails() {
           onPress={() => setDetailsExpanded((prev) => !prev)}
         >
           <View>
-            <Text style={styles.sectionTitle}>Rental Details</Text>
+            <Text style={styles.sectionTitle}>Rental Parameters</Text>
             <Text style={styles.dropdownSubtext}>
               {detailsExpanded ? "Tap to hide details" : "Tap to show details"}
             </Text>
@@ -499,14 +489,10 @@ export default function RentalDetails() {
         {detailsExpanded && (
           <View style={styles.accordionContainer}>
             <View style={[styles.card, styles.accordionCardSpacing]}>
-              <Text style={styles.cardTitle}>Payment Breakdown</Text>
+              <Text style={styles.cardTitle}>Terms Agreement</Text>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Monthly Rent</Text>
+                <Text style={styles.detailLabel}>Base Monthly Rent</Text>
                 <Text style={styles.detailValue}>₱{Number(rental.monthly_rent).toLocaleString()}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Advance Payment Paid</Text>
-                <Text style={styles.detailValue}>₱{Number(rental.advance_payment).toLocaleString()}</Text>
               </View>
             </View>
 
@@ -530,18 +516,14 @@ export default function RentalDetails() {
         <View style={[styles.card, { marginTop: 15 }]}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="history" size={22} color="#76ABAE" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Payment History</Text>
+            <Text style={styles.sectionTitle}>Ledger & Statement History</Text>
           </View>
 
           {payments.length === 0 ? (
-            <Text style={styles.emptyText}>No payment history records found.</Text>
+            <Text style={styles.emptyText}>No statement records found.</Text>
           ) : (
             payments.map((item, index) => {
-              const isInitialMoveInRow = index === payments.length - 1;
-
-              const displayAmountRow = isInitialMoveInRow && Number(rental.advance_payment) > 0
-                ? Number(rental.advance_payment)
-                : Number(item.amount);
+              const isPaid = item.payment_status === "Paid";
 
               return (
                 <View 
@@ -553,12 +535,10 @@ export default function RentalDetails() {
                 >
                   <View style={styles.historyLeft}>
                     <Text style={styles.historyMonth}>
-                      {isInitialMoveInRow && Number(rental.advance_payment) > 0 
-                        ? "Initial Move-in Costs" 
-                        : (item.billing_month || "Monthly Rental Statement")}
+                      {item.billing_month || "Monthly Rent"}
                     </Text>
                     <Text style={styles.historyMeta}>
-                      {item.payment_status === "Paid" 
+                      {isPaid 
                         ? `Paid on: ${item.payment_date || item.created_at?.split("T")[0]}` 
                         : `Due Date: ${item.due_date || "N/A"}`}
                     </Text>
@@ -566,15 +546,23 @@ export default function RentalDetails() {
 
                   <View style={styles.historyRight}>
                     <Text style={styles.historyAmount}>
-                      ₱{displayAmountRow.toLocaleString()}
+                      ₱{Number(item.amount).toLocaleString()}
                     </Text>
-                    <TouchableOpacity 
-                      style={[styles.historyStatusBadge, styles.badgePaid]}
-                      onPress={() => generateReceiptPDF(Number(item.amount), isInitialMoveInRow)}
-                    >
-                      <MaterialCommunityIcons name="download" size={12} color="#166534" style={{ marginRight: 2 }} />
-                      <Text style={[styles.historyStatusText, styles.textPaid]}>Receipt</Text>
-                    </TouchableOpacity>
+                    {isPaid ? (
+                      <TouchableOpacity 
+                        style={[styles.historyStatusBadge, styles.badgePaid]}
+                        onPress={() => generateReceiptPDF(item)}
+                      >
+                        <MaterialCommunityIcons name="download" size={12} color="#166534" style={{ marginRight: 2 }} />
+                        <Text style={[styles.historyStatusText, styles.textPaid]}>Receipt</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[styles.historyStatusBadge, item.payment_status === "Overdue" ? styles.badgeOverdue : styles.badgeDue]}>
+                        <Text style={[styles.historyStatusText, item.payment_status === "Overdue" ? styles.textOverdue : styles.textDue]}>
+                          {item.payment_status}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               );
@@ -586,7 +574,7 @@ export default function RentalDetails() {
         {rental.rental_status === "Active" && (
           <TouchableOpacity style={styles.endButton} onPress={handleEndRental}>
             <MaterialCommunityIcons name="close-circle" size={20} color="#FFF" />
-            <Text style={styles.endButtonText}>End Rental</Text>
+            <Text style={styles.endButtonText}>Terminate Rental</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -656,6 +644,10 @@ const styles = StyleSheet.create({
   historyAmount: { fontSize: 15, fontWeight: "700", color: "#303841" },
   historyStatusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   badgePaid: { backgroundColor: "#DCFCE7" },
+  badgeDue: { backgroundColor: "#FEF3C7" },
+  badgeOverdue: { backgroundColor: "#FEE2E2" },
   historyStatusText: { fontSize: 11, fontWeight: "700" },
   textPaid: { color: "#166534" },
+  textDue: { color: "#B45309" },
+  textOverdue: { color: "#991B1B" },
 });

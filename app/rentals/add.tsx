@@ -45,7 +45,7 @@ export default function AddRental() {
   const [roomId, setRoomId] = useState("");
 
   const [monthlyRent, setMonthlyRent] = useState("");
-  const [advancePayment, setAdvancePayment] = useState("");
+ const [amountPaid, setAmountPaid] = useState("");
   const [moveInDate, setMoveInDate] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(""); // NEW: Payment Method State
 
@@ -127,7 +127,7 @@ export default function AddRental() {
 
   const handleCreateRental = async () => {
     const monthlyRentValue = Number(monthlyRent);
-    const advancePaymentValue = Number(advancePayment || 0);
+   const amountPaidValue = Number(amountPaid || 0);
 
     if (!tenantId || !assetId || !roomId) {
       Alert.alert(
@@ -145,7 +145,7 @@ export default function AddRental() {
       return;
     }
 
-    if (!advancePayment || advancePaymentValue < monthlyRentValue) {
+   if (!amountPaid || amountPaidValue < monthlyRentValue) {
       Alert.alert(
         "Validation Error",
         `Advance payment must be at least equal to the monthly rent (₱${monthlyRentValue.toLocaleString()}).`
@@ -203,7 +203,6 @@ export default function AddRental() {
             asset_id: assetId,
             room_id: roomId,
             monthly_rent: monthlyRentValue,
-            advance_payment: advancePaymentValue,
             move_in_date: moveInDate,
             rental_status: "Active",
           },
@@ -218,7 +217,11 @@ export default function AddRental() {
       }
 
       const rentalId = data.id;
-      const advanceMonths = Math.floor(advancePaymentValue / monthlyRentValue);
+     const paidMonths =
+  Math.floor(
+    amountPaidValue /
+    monthlyRentValue
+  );
       
       const dayTarget = parseInt(moveInDate.split("-")[2], 10);
       const baseYear = startDateObj.getFullYear();
@@ -227,7 +230,7 @@ export default function AddRental() {
       const paymentRecords = [];
 
       // Generate Auto-Paid Months from Advance Payments
-      for (let i = 0; i < advanceMonths; i++) {
+    for (let i = 0; i < paidMonths; i++){
         const dueDate = new Date(baseYear, baseMonth + i, dayTarget);
         const billingMonth = dueDate.toLocaleString("en-US", {
           month: "long",
@@ -246,7 +249,11 @@ export default function AddRental() {
       }
 
       // Generate Next Following Unpaid Active "Due" Month
-      const nextDueDate = new Date(baseYear, baseMonth + advanceMonths, dayTarget);
+   const nextDueDate = new Date(
+  baseYear,
+  baseMonth + paidMonths,
+  dayTarget
+);
       const nextBillingMonth = nextDueDate.toLocaleString("en-US", {
         month: "long",
         year: "numeric",
@@ -372,12 +379,14 @@ export default function AddRental() {
             style={[styles.input, styles.disabledInput]}
           />
 
-          <Text style={styles.label}>Advance Payment</Text>
+     <Text style={styles.label}>
+  Amount Paid
+</Text>
           <TextInput
-            value={advancePayment}
-            onChangeText={setAdvancePayment}
+           value={amountPaid}
+onChangeText={setAmountPaid}
             keyboardType="numeric"
-            placeholder="Minimum 1 month rent required"
+   placeholder="Enter amount received"
             placeholderTextColor="#94A3B8"
             style={styles.input}
           />
