@@ -19,7 +19,6 @@ export default function RentalDetails() {
   const { id } = useLocalSearchParams();
 
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
   const [rental, setRental] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -163,15 +162,15 @@ export default function RentalDetails() {
             <div class="info-section">
               <div class="info-card">
                 <h3>Tenant Details</h3>
-                <p><strong>Name:</strong> ${rental.tenants?.full_name}</p>
-                <p><strong>Email:</strong> ${rental.tenants?.email}</p>
-                <p><strong>Contact:</strong> ${rental.tenants?.contact_number}</p>
+                <p><strong>Name:</strong> ${rental?.tenants?.full_name}</p>
+                <p><strong>Email:</strong> ${rental?.tenants?.email}</p>
+                <p><strong>Contact:</strong> ${rental?.tenants?.contact_number}</p>
               </div>
               <div class="info-card">
                 <h3>Property Spaces</h3>
-                <p><strong>Property:</strong> ${rental.assets?.property_name}</p>
-                <p><strong>Room / Unit:</strong> Room ${rental.rooms?.room_number}</p>
-                <p><strong>Location:</strong> ${rental.assets?.address}</p>
+                <p><strong>Property:</strong> ${rental?.assets?.property_name}</p>
+                <p><strong>Room / Unit:</strong> Room ${rental?.rooms?.room_number}</p>
+                <p><strong>Location:</strong> ${rental?.assets?.address}</p>
               </div>
             </div>
 
@@ -213,100 +212,14 @@ export default function RentalDetails() {
     }
   };
 
-  const handlePayRent = async () => {
-    // Find oldest unpaid item to collect payment on
-    const upcomingBillItem = [...payments]
-      .reverse()
-      .find((item) => item.payment_status === "Due" || item.payment_status === "Overdue");
-
-    if (!upcomingBillItem) {
-      Alert.alert("No Balance Due", "This rental account contains no active pending open billing periods.");
-      return;
-    }
-
-    Alert.alert(
-      "Confirm Payment",
-      `Process payment of ₱${Number(upcomingBillItem.amount).toLocaleString()} for ${upcomingBillItem.billing_month}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: async () => {
-            try {
-              setPaying(true);
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
-
-              // Update current row to Paid
-              const { error } = await supabase
-                .from("payments")
-                .update({
-                  payment_status: "Paid",
-                  payment_date: new Date().toISOString().split("T")[0],
-                  payment_method: "Cash",
-                })
-                .eq("id", upcomingBillItem.id)
-                .eq("user_id", user?.id);
-
-              if (error) throw error;
-
-              // FIXED SEQUENCE GENERATION: Check what the max existing due date in your payment list is
-              // This guarantees we only append months *after* the furthest registered bill record.
-              const chronologicalPayments = [...payments].sort(
-                (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-              );
-              const highestBillRecord = chronologicalPayments[chronologicalPayments.length - 1];
-
-              const baseDate = new Date(highestBillRecord ? highestBillRecord.due_date : upcomingBillItem.due_date);
-              baseDate.setMonth(baseDate.getMonth() + 1);
-
-              const nextBillingStr = baseDate.toLocaleString("en-US", { month: "long", year: "numeric" });
-              const nextDueDateStr = baseDate.toISOString().split("T")[0];
-
-              // Insert next statement schedule entry safely
-              await supabase.from("payments").insert({
-                rental_id: rental.id,
-                user_id: user?.id,
-                billing_month: nextBillingStr,
-                amount: upcomingBillItem.amount,
-                due_date: nextDueDateStr,
-                payment_status: "Due",
-              });
-
-              await fetchPaymentSummary(rental.id);
-
-              Alert.alert(
-                "Success", 
-                "Payment recorded successfully!",
-                [
-                  { text: "Close", style: "cancel" },
-                  { 
-                    text: "Generate Receipt", 
-                    style: "default", 
-                    onPress: () => generateReceiptPDF({ ...upcomingBillItem, payment_status: "Paid", payment_method: "Cash" }) 
-                  }
-                ]
-              );
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to log payment.");
-            } finally {
-              setPaying(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleEndRental = async () => {
     Alert.alert(
-      "End Rental",
-      "Are you sure you want to end this rental?",
+      "Terminate Agreement",
+      "Are you certain you want to end this active tenancy documentation structure? This will wipe outstanding uncollected fields.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "End Rental",
+          text: "Confirm Termination",
           style: "destructive",
           onPress: async () => {
             try {
@@ -338,7 +251,7 @@ export default function RentalDetails() {
                 .update({ status: "Inactive" })
                 .eq("id", rental.tenant_id);
 
-              Alert.alert("Success", "Rental ended and outstanding dues deleted successfully.");
+              Alert.alert("Terminated", "Rental records closed flawlessly.");
               router.back();
             } catch (error: any) {
               console.log(error);
@@ -356,212 +269,215 @@ export default function RentalDetails() {
     .reverse()
     .find((item) => item.payment_status === "Due" || item.payment_status === "Overdue");
 
-if (loading || !rental) {
+  if (loading || !rental) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#76ABAE" />
+        <ActivityIndicator size="small" color="#76ABAE" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Premium Integrated Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="arrow-left" size={20} color="#FFF" />
+          <MaterialCommunityIcons name="chevron-left" size={26} color="#303841" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rental Details</Text>
-        <View style={{ width: 36 }} />
+        <Text style={styles.headerTitle}>Agreement Record</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.container}>
-        {/* Tenant Information Card */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="account" size={22} color="#76ABAE" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Tenant Information</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Name</Text>
-            <Text style={styles.itemValue}>{rental.tenants?.full_name}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Email</Text>
-            <Text style={styles.itemValue}>{rental.tenants?.email}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Contact</Text>
-            <Text style={styles.itemValue}>{rental.tenants?.contact_number}</Text>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        
+        {/* Premium Account Hero Card */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroRow}>
+            <View>
+              <Text style={styles.heroTenantLabel}>TENANT</Text>
+              <Text style={styles.heroTenantName}>{rental?.tenants?.full_name}</Text>
+              <Text style={styles.heroLocationSub}>
+                {rental?.assets?.property_name} • Unit {rental?.rooms?.room_number}
+              </Text>
+            </View>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>{rental?.rental_status?.toUpperCase()}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Property Information Card */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="home-city" size={22} color="#76ABAE" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Property Information</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Property</Text>
-            <Text style={styles.itemValue}>{rental.assets?.property_name}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Room</Text>
-            <Text style={styles.itemValue}>{rental.rooms?.room_number}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.itemLabel}>Address</Text>
-            <Text style={styles.itemValue}>{rental.assets?.address}</Text>
-          </View>
-        </View>
-
-        {/* Financial Overview Metrics */}
+        {/* Financial Executive Summary Row */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel} numberOfLines={1}>Paid Total</Text>
-            <Text style={styles.summaryValue}>₱{paymentSummary.paidAmount.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel}>TOTAL SETTLED</Text>
+            <Text style={[styles.summaryValue, { color: "#10B981" }]}>
+              ₱{paymentSummary.paidAmount.toLocaleString()}
+            </Text>
           </View>
 
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel} numberOfLines={1}>Overdue</Text>
-            <Text style={styles.summaryValue}>₱{paymentSummary.overdueAmount.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel}>TOTAL OVERDUE</Text>
+            <Text style={[styles.summaryValue, { color: paymentSummary.overdueAmount > 0 ? "#EF4444" : "#303841" }]}>
+              ₱{paymentSummary.overdueAmount.toLocaleString()}
+            </Text>
           </View>
         </View>
 
-        {/* High-visibility Upcoming Bill Schedule Notice Segment */}
-        {rental.rental_status === "Active" && activeUpcomingBill && (
+        {/* Dynamic High-Contrast Bill Invoice Prompt */}
+        {rental?.rental_status === "Active" && activeUpcomingBill && (
           <View style={styles.upcomingCard}>
-            <View style={styles.upcomingLeft}>
-              <View style={styles.upcomingIconContainer}>
-                <MaterialCommunityIcons name="calendar-alert" size={22} color="#76ABAE" />
+            <View style={styles.upcomingHeaderContainer}>
+              <View style={styles.upcomingTag}>
+                <MaterialCommunityIcons name="file-document-outline" size={12} color="#76ABAE" style={{ marginRight: 4 }} />
+                <Text style={styles.upcomingTagText}>NEXT DUE BILL</Text>
               </View>
-              <View style={styles.upcomingTextGroup}>
-                <Text style={styles.upcomingTitle}>Next Bill Due ({activeUpcomingBill.billing_month})</Text>
-                <Text style={styles.upcomingSubtitle}>
+              <Text style={styles.upcomingPrice}>
+                ₱{Number(activeUpcomingBill.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+            
+            <View style={styles.upcomingMetaRow}>
+              <View>
+                <Text style={styles.upcomingMetaLabel}>DUE MONTH</Text>
+                <Text style={styles.upcomingMetaVal}>{activeUpcomingBill.billing_month}</Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.upcomingMetaLabel}>MATURITY DATE</Text>
+                <Text style={styles.upcomingMetaVal}>
                   {new Date(activeUpcomingBill.due_date).toLocaleDateString("en-US", {
-                    year: "numeric",
                     month: "short",
                     day: "numeric",
+                    year: "numeric",
                   })}
                 </Text>
               </View>
             </View>
-            <Text style={styles.upcomingPrice}>₱{Number(activeUpcomingBill.amount).toLocaleString()}</Text>
+
+            <TouchableOpacity 
+              style={styles.payButton} 
+              activeOpacity={0.9}
+              onPress={() => router.push({
+                pathname: "/payments/record-payment",
+                params: { 
+                  paymentId: activeUpcomingBill.id,
+                  billing_month: activeUpcomingBill.billing_month,
+                  amount: activeUpcomingBill.amount,
+                  rental_id: rental.id
+                }
+              })}
+            >
+              <MaterialCommunityIcons name="credit-card-check-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+              <Text style={styles.payButtonText}>Collect Payment</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Action CTA Bar Frame for Payment processing */}
-        {rental.rental_status === "Active" && activeUpcomingBill && (
-          <TouchableOpacity 
-            style={[styles.payButton, paying && { opacity: 0.7 }]} 
-            onPress={handlePayRent}
-            disabled={paying}
-          >
-            {paying ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <>
-                <MaterialCommunityIcons name="cash-register" size={20} color="#FFF" />
-                <Text style={styles.payButtonText}>Collect Rent Summary</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+        {/* Clean Contact Data Block */}
+        <View style={styles.premiumSectionCard}>
+          <Text style={styles.cardHeaderTitle}>Contact Information</Text>
+          <View style={styles.pureInfoRow}>
+            <Text style={styles.pureLabel}>Email Address</Text>
+            <Text style={styles.pureValue}>{rental?.tenants?.email || "N/A"}</Text>
+          </View>
+          <View style={styles.pureInfoRow}>
+            <Text style={styles.pureLabel}>Contact Number</Text>
+            <Text style={styles.pureValue}>{rental?.tenants?.contact_number || "N/A"}</Text>
+          </View>
+          <View style={styles.pureInfoRow}>
+            <Text style={styles.pureLabel}>Physical Address</Text>
+            <Text style={styles.pureValue} numberOfLines={1}>{rental?.assets?.address}</Text>
+          </View>
+        </View>
 
-        {/* Collapsible Accordion Block */}
+        {/* Collapsible Parameters Segment */}
         <TouchableOpacity
-          style={[styles.dropdownHeader, detailsExpanded && styles.dropdownHeaderActive]}
+          style={styles.accordionToggleHeader}
+          activeOpacity={0.7}
           onPress={() => setDetailsExpanded((prev) => !prev)}
         >
-          <View>
-            <Text style={styles.sectionTitle}>Rental Parameters</Text>
-            <Text style={styles.dropdownSubtext}>
-              {detailsExpanded ? "Tap to hide details" : "Tap to show details"}
-            </Text>
-          </View>
+          <Text style={styles.cardHeaderTitle}>Agreement Settings</Text>
           <MaterialCommunityIcons
-            name={detailsExpanded ? "chevron-up" : "chevron-down"}
-            size={24}
-            color="#303841"
+            name={detailsExpanded ? "minus" : "plus"}
+            size={18}
+            color="#76ABAE"
           />
         </TouchableOpacity>
 
         {detailsExpanded && (
-          <View style={styles.accordionContainer}>
-            <View style={[styles.card, styles.accordionCardSpacing]}>
-              <Text style={styles.cardTitle}>Terms Agreement</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Base Monthly Rent</Text>
-                <Text style={styles.detailValue}>₱{Number(rental.monthly_rent).toLocaleString()}</Text>
-              </View>
+          <View style={styles.accordionBodyContainer}>
+            <View style={styles.pureInfoRow}>
+              <Text style={styles.pureLabel}>Base Space Rent</Text>
+              <Text style={styles.pureValue}>₱{Number(rental?.monthly_rent).toLocaleString()}</Text>
             </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Schedule Status</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Move-in Date</Text>
-                <Text style={styles.detailValue}>{rental.move_in_date}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Rental Status</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>{rental.rental_status}</Text>
-                </View>
-              </View>
+            <View style={styles.pureInfoRow}>
+              <Text style={styles.pureLabel}>Move-In Index</Text>
+              <Text style={styles.pureValue}>{rental?.move_in_date}</Text>
             </View>
           </View>
         )}
 
-        {/* Payment History Details Section */}
-        <View style={[styles.card, { marginTop: 15 }]}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="history" size={22} color="#76ABAE" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Ledger & Statement History</Text>
-          </View>
+        {/* Ledger & Statement Stream */}
+        <View style={[styles.premiumSectionCard, { marginTop: 16 }]}>
+          <Text style={styles.cardHeaderTitle}>Payment History</Text>
 
           {payments.length === 0 ? (
-            <Text style={styles.emptyText}>No statement records found.</Text>
+            <Text style={styles.emptyText}>No historical logs detected.</Text>
           ) : (
             payments.map((item, index) => {
               const isPaid = item.payment_status === "Paid";
+              const isOverdue = item.payment_status === "Overdue";
 
               return (
                 <View 
                   key={item.id || index} 
                   style={[
-                    styles.historyRow, 
-                    index !== payments.length - 1 && styles.historySeparator
+                    styles.historyItemRow, 
+                    index !== payments.length - 1 && styles.historyItemSeparator
                   ]}
                 >
-                  <View style={styles.historyLeft}>
-                    <Text style={styles.historyMonth}>
-                      {item.billing_month || "Monthly Rent"}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyMonthText}>
+                      {item.billing_month || "Monthly Lease Rent"}
                     </Text>
-                    <Text style={styles.historyMeta}>
+                    <Text style={styles.historySubMeta}>
                       {isPaid 
-                        ? `Paid on: ${item.payment_date || item.created_at?.split("T")[0]}` 
-                        : `Due Date: ${item.due_date || "N/A"}`}
+                        ? `Cleared: ${item.payment_date || item.created_at?.split("T")[0]}` 
+                        : `Matures: ${item.due_date || "N/A"}`}
                     </Text>
                   </View>
 
-                  <View style={styles.historyRight}>
-                    <Text style={styles.historyAmount}>
-                      ₱{Number(item.amount).toLocaleString()}
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.historyAmountText}>
+                      ₱{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
+                    
                     {isPaid ? (
                       <TouchableOpacity 
-                        style={[styles.historyStatusBadge, styles.badgePaid]}
+                        style={[styles.miniStatusBadge, styles.miniBadgePaid]}
+                        activeOpacity={0.7}
                         onPress={() => generateReceiptPDF(item)}
                       >
-                        <MaterialCommunityIcons name="download" size={12} color="#166534" style={{ marginRight: 2 }} />
-                        <Text style={[styles.historyStatusText, styles.textPaid]}>Receipt</Text>
+                        <MaterialCommunityIcons name="tray-arrow-down" size={10} color="#10B981" style={{ marginRight: 2 }} />
+                        <Text style={[styles.miniStatusText, { color: "#10B981" }]}>RECEIPT</Text>
                       </TouchableOpacity>
                     ) : (
-                      <View style={[styles.historyStatusBadge, item.payment_status === "Overdue" ? styles.badgeOverdue : styles.badgeDue]}>
-                        <Text style={[styles.historyStatusText, item.payment_status === "Overdue" ? styles.textOverdue : styles.textDue]}>
-                          {item.payment_status}
+                      <TouchableOpacity 
+                        style={[styles.miniStatusBadge, isOverdue ? styles.miniBadgeOverdue : styles.miniBadgeDue]}
+                        activeOpacity={0.7}
+                        onPress={() => router.push({
+                          pathname: "/payments/record-payment",
+                          params: { 
+                            paymentId: item.id, 
+                            billing_month: item.billing_month,
+                            amount: item.amount,
+                            rental_id: rental.id 
+                          }
+                        })}
+                      >
+                        <Text style={[styles.miniStatusText, isOverdue ? { color: "#EF4444" } : { color: "#F59E0B" }]}>
+                          {item.payment_status?.toUpperCase()}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -570,10 +486,9 @@ if (loading || !rental) {
           )}
         </View>
 
-        {/* End Rental CTA Triggers */}
-        {rental.rental_status === "Active" && (
-          <TouchableOpacity style={styles.endButton} onPress={handleEndRental}>
-            <MaterialCommunityIcons name="close-circle" size={20} color="#FFF" />
+        {/* Elegant Destructive Actions Frame */}
+        {rental?.rental_status === "Active" && (
+          <TouchableOpacity style={styles.endButton} activeOpacity={0.8} onPress={handleEndRental}>
             <Text style={styles.endButtonText}>Terminate Rental</Text>
           </TouchableOpacity>
         )}
@@ -583,71 +498,327 @@ if (loading || !rental) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F5F5F5" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, backgroundColor: "#303841" },
-  backButton: { width: 36, height: 36, justifyContent: "center", alignItems: "center", backgroundColor: "#434E5A", borderRadius: 8 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#F5F5F5" },
-  container: { flex: 1, backgroundColor: "#F5F5F5", padding: 16 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F5F5F5" },
-  card: { backgroundColor: "#FFF", padding: 16, borderRadius: 14, marginBottom: 15, borderWidth: 1, borderColor: "#E5E7EB" },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#303841" },
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  sectionIcon: { marginRight: 8 },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: 4 },
-  itemLabel: { fontSize: 14, color: "#64748B", flex: 1 },
-  itemValue: { fontSize: 14, fontWeight: "600", color: "#303841", flex: 2, textAlign: "right" },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#303841", marginBottom: 12 },
-  detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  detailLabel: { color: "#64748B", fontSize: 14 },
-  detailValue: { color: "#303841", fontSize: 14, fontWeight: "700" },
-  statusBadge: { backgroundColor: "#E6F4F1", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 },
-  statusText: { color: "#76ABAE", fontWeight: "700", fontSize: 13 },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginBottom: 15 },
-  summaryCard: { flex: 1, backgroundColor: "#FFF", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center" },
-  summaryLabel: { color: "#64748B", fontSize: 13, fontWeight: "600", marginBottom: 4 },
-  summaryValue: { fontSize: 15, fontWeight: "700", color: "#303841" },
-  dropdownHeader: { backgroundColor: "#FFF", borderRadius: 14, padding: 16, marginBottom: 15, borderWidth: 1, borderColor: "#E5E7EB", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  dropdownHeaderActive: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: 0, borderBottomWidth: 0 },
-  accordionContainer: { backgroundColor: "#EAEAEA", padding: 12, borderBottomLeftRadius: 14, borderBottomRightRadius: 14, marginBottom: 15, borderWidth: 1, borderColor: "#E5E7EB", borderTopWidth: 0 },
-  accordionCardSpacing: { marginBottom: 10 },
-  dropdownSubtext: { color: "#64748B", marginTop: 4, fontSize: 12 },
+  safe: { 
+    flex: 1, 
+    backgroundColor: "#FBFBFD" 
+  },
+  center: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  header: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between", 
+    paddingHorizontal: 24, 
+    paddingVertical: 16,
+    backgroundColor: "#FBFBFD"
+  },
+  backButton: { 
+    width: 40, 
+    height: 40, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "#FFF", 
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  headerTitle: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#303841",
+    letterSpacing: -0.3
+  },
+  container: { 
+    flex: 1, 
+    paddingHorizontal: 24 
+  },
+  heroCard: {
+    backgroundColor: "#303841",
+    borderRadius: 24,
+    padding: 24,
+    marginTop: 8,
+    marginBottom: 14,
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 6
+  },
+  heroRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "flex-start" 
+  },
+  heroTenantLabel: { 
+    fontSize: 10, 
+    fontWeight: "700", 
+    color: "#76ABAE", 
+    letterSpacing: 1 
+  },
+  heroTenantName: { 
+    fontSize: 22, 
+    fontWeight: "700", 
+    color: "#FFF", 
+    marginTop: 4,
+    letterSpacing: -0.5
+  },
+  heroLocationSub: { 
+    fontSize: 13, 
+    color: "#94A3B8", 
+    marginTop: 4,
+    fontWeight: "500"
+  },
+  statusBadge: { 
+    backgroundColor: "rgba(118, 171, 174, 0.15)", 
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: "rgba(118, 171, 174, 0.2)"
+  },
+  statusText: { 
+    color: "#76ABAE", 
+    fontWeight: "700", 
+    fontSize: 10,
+    letterSpacing: 0.6
+  },
+  summaryRow: { 
+    flexDirection: "row", 
+    gap: 12, 
+    marginBottom: 16 
+  },
+  summaryCard: { 
+    flex: 1, 
+    backgroundColor: "#FFF", 
+    borderRadius: 20, 
+    padding: 16, 
+    borderWidth: 1, 
+    borderColor: "rgba(0,0,0,0.03)", 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2
+  },
+  summaryLabel: { 
+    color: "#94A3B8", 
+    fontSize: 9, 
+    fontWeight: "700", 
+    letterSpacing: 0.8 
+  },
+  summaryValue: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: "#303841", 
+    marginTop: 6,
+    letterSpacing: -0.3
+  },
   upcomingCard: { 
+    backgroundColor: "#FFF", 
+    borderRadius: 24, 
+    padding: 20, 
+    marginBottom: 16, 
+    borderWidth: 1, 
+    borderColor: "rgba(118, 171, 174, 0.15)",
+    shadowColor: "#76ABAE",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3
+  },
+  upcomingHeaderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    paddingBottom: 14
+  },
+  upcomingTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F7F7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6
+  },
+  upcomingTagText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#76ABAE",
+    letterSpacing: 0.3
+  },
+  upcomingPrice: { 
+    fontSize: 20, 
+    fontWeight: "800", 
+    color: "#303841",
+    letterSpacing: -0.5
+  },
+  upcomingMetaRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginTop: 14,
+    marginBottom: 18
+  },
+  upcomingMetaLabel: { 
+    fontSize: 9, 
+    fontWeight: "700", 
+    color: "#94A3B8",
+    letterSpacing: 0.5
+  },
+  upcomingMetaVal: { 
+    fontSize: 14, 
+    fontWeight: "600", 
+    color: "#303841", 
+    marginTop: 2 
+  },
+  payButton: { 
+    backgroundColor: "#76ABAE", 
+    paddingVertical: 14, 
+    borderRadius: 16, 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    alignItems: "center",
+    shadowColor: "#76ABAE",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3
+  },
+  payButtonText: { 
+    color: "#FFF", 
+    fontWeight: "600", 
+    fontSize: 14,
+    letterSpacing: -0.2
+  },
+  premiumSectionCard: { 
+    backgroundColor: "#FFF", 
+    padding: 20, 
+    borderRadius: 24, 
+    borderWidth: 1, 
+    borderColor: "rgba(0,0,0,0.03)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2
+  },
+  cardHeaderTitle: { 
+    fontSize: 14, 
+    fontWeight: "700", 
+    color: "#303841", 
+    marginBottom: 14,
+    letterSpacing: -0.2
+  },
+  pureInfoRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    paddingVertical: 8 
+  },
+  pureLabel: { 
+    fontSize: 13, 
+    color: "#94A3B8",
+    fontWeight: "500"
+  },
+  pureValue: { 
+    fontSize: 13, 
+    fontWeight: "500", 
+    color: "#303841" 
+  },
+  accordionToggleHeader: { 
+    backgroundColor: "#FFF", 
+    borderRadius: 20, 
+    paddingHorizontal: 20, 
+    paddingVertical: 16, 
+    marginTop: 14, 
+    borderWidth: 1, 
+    borderColor: "rgba(0,0,0,0.03)", 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center" 
+  },
+  accordionBodyContainer: { 
+    backgroundColor: "#FFF", 
+    paddingHorizontal: 20, 
+    paddingBottom: 16, 
+    borderBottomLeftRadius: 20, 
+    borderBottomRightRadius: 20, 
+    borderWidth: 1, 
+    borderColor: "rgba(0,0,0,0.03)", 
+    borderTopWidth: 0,
+    marginTop: -8
+  },
+  emptyText: { 
+    fontSize: 13, 
+    color: "#94A3B8", 
+    textAlign: "center", 
+    marginVertical: 16, 
+    fontStyle: "italic" 
+  },
+  historyItemRow: { 
     flexDirection: "row", 
     justifyContent: "space-between", 
     alignItems: "center", 
-    backgroundColor: "#EBF5F6", 
-    padding: 16, 
-    borderRadius: 14, 
-    marginBottom: 16, 
-    borderWidth: 1, 
-    borderColor: "#BCE3E6", 
-    borderLeftWidth: 5, 
-    borderLeftColor: "#76ABAE" 
+    paddingVertical: 14 
   },
-  upcomingLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  upcomingIconContainer: { backgroundColor: "#FFF", padding: 8, borderRadius: 10, shadowColor: "#76ABAE", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  upcomingTextGroup: { flexDirection: "column" },
-  upcomingTitle: { fontSize: 13, fontWeight: "800", color: "#507274", textTransform: "uppercase", letterSpacing: 0.5 },
-  upcomingSubtitle: { fontSize: 16, fontWeight: "700", color: "#303841", marginTop: 2 },
-  upcomingPrice: { fontSize: 18, fontWeight: "800", color: "#2E5052" },
-  payButton: { backgroundColor: "#76ABAE", padding: 16, borderRadius: 12, marginBottom: 15, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, shadowColor: "#76ABAE", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
-  payButtonText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
-  endButton: { backgroundColor: "#FF5722", padding: 16, borderRadius: 12, marginTop: 10, marginBottom: 40, flexDirection: "row", justifyContent: "center", alignItems: "center" },
-  endButtonText: { color: "#FFF", fontWeight: "700", fontSize: 16, marginLeft: 8 },
-  emptyText: { fontSize: 14, color: "#64748B", textAlign: "center", marginVertical: 10, fontStyle: "italic" },
-  historyRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
-  historySeparator: { borderBottomWidth: 1, borderBottomColor: "#F1F5F9" },
-  historyLeft: { flex: 2 },
-  historyRight: { flex: 1, alignItems: "flex-end", gap: 4 },
-  historyMonth: { fontSize: 15, fontWeight: "700", color: "#303841" },
-  historyMeta: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  historyAmount: { fontSize: 15, fontWeight: "700", color: "#303841" },
-  historyStatusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgePaid: { backgroundColor: "#DCFCE7" },
-  badgeDue: { backgroundColor: "#FEF3C7" },
-  badgeOverdue: { backgroundColor: "#FEE2E2" },
-  historyStatusText: { fontSize: 11, fontWeight: "700" },
-  textPaid: { color: "#166534" },
-  textDue: { color: "#B45309" },
-  textOverdue: { color: "#991B1B" },
+  historyItemSeparator: { 
+    borderBottomWidth: 1, 
+    borderBottomColor: "#F8FAFC" 
+  },
+  historyMonthText: { 
+    fontSize: 14, 
+    fontWeight: "600", 
+    color: "#303841" 
+  },
+  historySubMeta: { 
+    fontSize: 12, 
+    color: "#94A3B8", 
+    marginTop: 2 
+  },
+  historyAmountText: { 
+    fontSize: 14, 
+    fontWeight: "700", 
+    color: "#303841",
+    letterSpacing: -0.2
+  },
+  miniStatusBadge: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 6,
+    marginTop: 4
+  },
+  miniBadgePaid: { backgroundColor: "#ECFDF5" },
+  miniBadgeDue: { backgroundColor: "#FFF9E6" },
+  miniBadgeOverdue: { backgroundColor: "#FEF2F2" },
+  miniStatusText: { 
+    fontSize: 9, 
+    fontWeight: "700",
+    letterSpacing: 0.3
+  },
+  endButton: { 
+    backgroundColor: "transparent", 
+    paddingVertical: 16, 
+    borderRadius: 16, 
+    marginTop: 24, 
+    marginBottom: 40, 
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  endButtonText: { 
+    color: "#EF4444", 
+    fontWeight: "600", 
+    fontSize: 14 
+  },
 });

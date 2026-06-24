@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,25 +17,23 @@ import { supabase } from "../../src/lib/supabase";
 
 export default function RecordPayment() {
   const { paymentId } = useLocalSearchParams();
+  const isMounted = useRef(true);
 
   const [loading, setLoading] = useState(false);
-
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-
   const [paymentMethod, setPaymentMethod] = useState("Cash");
-
   const [amount, setAmount] = useState("");
-
   const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
-
   const [referenceNumber, setReferenceNumber] = useState("");
-
   const [remarks, setRemarks] = useState("");
 
   useEffect(() => {
+    isMounted.current = true;
+    
     const fetchExpectedAmount = async () => {
+      if (!paymentId) return;
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -50,28 +48,39 @@ export default function RecordPayment() {
           return;
         }
 
-        setExpectedAmount(data?.amount ?? null);
+        if (isMounted.current) {
+          setExpectedAmount(data?.amount ?? null);
+        }
       } catch (error) {
-        console.log(error);
+        console.log("Fetch Error:", error);
         Alert.alert("Error", "Unable to load payment details.");
         router.back();
       } finally {
-        setLoading(false);
+        if (isMounted.current) setLoading(false);
       }
     };
 
-    if (paymentId) {
-      fetchExpectedAmount();
-    }
+    fetchExpectedAmount();
+
+    return () => {
+      // Kills all pending state resolutions when navigating away
+      isMounted.current = false;
+    };
   }, [paymentId]);
 
   const handleSavePayment = async () => {
-    if (!amount) {
+    const cleanedAmount = amount.trim();
+    if (!cleanedAmount) {
       Alert.alert("Validation Error", "Please enter the payment amount.");
       return;
     }
 
-    const enteredAmount = Number(amount);
+    const enteredAmount = Number(cleanedAmount);
+    if (Number.isNaN(enteredAmount) || enteredAmount <= 0) {
+      Alert.alert("Validation Error", "Please enter a valid payment amount.");
+      return;
+    }
+
     if (expectedAmount !== null && enteredAmount < expectedAmount) {
       Alert.alert(
         "Validation Error",
@@ -83,7 +92,7 @@ export default function RecordPayment() {
     try {
       setLoading(true);
 
-      // 1. Update the current payment record row to "Paid"
+      // 1. Update current invoice row
       const { data: updatedPayment, error: updateError } = await supabase
         .from("payments")
         .update({
@@ -91,47 +100,48 @@ export default function RecordPayment() {
           payment_date: paymentDate,
           payment_method: paymentMethod,
           amount_paid: enteredAmount,
-          reference_number: referenceNumber,
-          remarks: remarks,
+          reference_number: referenceNumber.trim() || null,
+          remarks: remarks.trim() || null,
         })
         .eq("id", paymentId)
         .select()
         .single();
 
-      if (updateError) {
-        Alert.alert("Error", updateError.message);
+      if (updateError || !updatedPayment) {
+        Alert.alert("Error", updateError?.message || "Failed to update payment.");
+        if (isMounted.current) setLoading(false);
         return;
       }
 
-      console.log("Current payment updated successfully:", updatedPayment);
-
-      // 2. Fetch the related rental using rental_id to grab standard contract terms
+      // 2. Query rental contract structures 
       const { data: rental, error: rentalError } = await supabase
         .from("rentals")
         .select("monthly_rent, user_id")
         .eq("id", updatedPayment.rental_id)
         .single();
 
-      if (rentalError) {
-        Alert.alert("Error fetching rental metadata", rentalError.message);
+      if (rentalError || !rental) {
+        Alert.alert("Error fetching rental metadata", rentalError?.message || "Rental metadata mismatch.");
+        if (isMounted.current) setLoading(false);
         return;
       }
 
-      // 3. Compute the next calendar monthly sequence due date target
+      // 3. Robust Date Engineering Logic
       const currentDueDate = new Date(updatedPayment.due_date);
+      if (Number.isNaN(currentDueDate.getTime())) {
+        throw new Error("Invalid format encountered within database schema date mapping.");
+      }
+
       const nextDueDateObj = new Date(currentDueDate);
       nextDueDateObj.setMonth(currentDueDate.getMonth() + 1);
 
-      // Format back to strict clean standard date string (YYYY-MM-DD)
       const nextDueDateStr = nextDueDateObj.toISOString().split("T")[0];
-
-      // Format custom display localized string naming text (e.g., "October 2026")
       const nextMonthLabel = nextDueDateObj.toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
       });
 
-      // 4. Duplicate Guard Filter Check: Match unique timeframe entries allocation
+      // 4. Validate and execute future period generation
       const { data: existingPayment, error: checkError } = await supabase
         .from("payments")
         .select("id")
@@ -139,42 +149,35 @@ export default function RecordPayment() {
         .eq("due_date", nextDueDateStr)
         .maybeSingle();
 
-      if (checkError) {
-        Alert.alert("Database Verification Failure", checkError.message);
-        return;
+      if (!checkError && !existingPayment) {
+        await supabase.from("payments").insert([
+          {
+            user_id: updatedPayment.user_id,
+            rental_id: updatedPayment.rental_id,
+            billing_month: nextMonthLabel,
+            amount: rental.monthly_rent,
+            due_date: nextDueDateStr,
+            payment_status: "Due",
+          },
+        ]);
       }
 
-      // 5. Append future placeholder record if window is cleared cleanly
-      if (!existingPayment) {
-        const { error: insertError } = await supabase
-          .from("payments")
-          .insert([
-            {
-              user_id: updatedPayment.user_id,
-              rental_id: updatedPayment.rental_id,
-              billing_month: nextMonthLabel,
-              amount: rental.monthly_rent,
-              due_date: nextDueDateStr,
-              payment_status: "Due",
-            },
-          ]);
-
-        if (insertError) {
-          Alert.alert("Error generating next cycle invoice", insertError.message);
-          return;
+      Alert.alert("Success", "Payment recorded successfully.", [
+        { 
+          text: "OK", 
+          onPress: () => {
+            // Give native animation layout threads a clean window to reset
+            setTimeout(() => {
+              router.back();
+            }, 100);
+          } 
         }
-        console.log("Next period payment record instantiated:", nextMonthLabel);
-      } else {
-        console.log("Duplicate skipped: Statement timeline already exists for", nextDueDateStr);
-      }
-
-      Alert.alert("Success", "Payment recorded successfully.");
-      router.back();
+      ]);
     } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Something went wrong.");
+      console.log("Execution Error Handled Safely:", error);
+      Alert.alert("Error", "Something went wrong processing transactional cycles.");
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   };
 
@@ -184,85 +187,120 @@ export default function RecordPayment() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
+          disabled={loading}
         >
-          <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#FFF" />
         </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Record Payment</Text>
-
-        <View style={{ width: 32 }} />
+        <Text style={styles.headerTitle}>Process Payment</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>Record Payment</Text>
-
-        <Text style={styles.label}>Payment Date</Text>
-
-        <TextInput
-          value={paymentDate}
-          onChangeText={setPaymentDate}
-          placeholder="2026-06-25"
-          style={styles.input}
-        />
-
-        <Text style={styles.label}>Payment Method</Text>
-
-        <Picker
-          selectedValue={paymentMethod}
-          onValueChange={setPaymentMethod}
-          style={styles.picker}
-        >
-          <Picker.Item label="Cash" value="Cash" />
-          <Picker.Item label="GCash" value="GCash" />
-          <Picker.Item label="Bank Transfer" value="Bank Transfer" />
-        </Picker>
-
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {expectedAmount !== null && (
-          <View>
-            <Text style={styles.label}>Amount Due</Text>
-            <Text style={styles.amountDue}>
-              ₱{expectedAmount.toLocaleString()}
-            </Text>
+          <View style={styles.dueBanner}>
+            <MaterialCommunityIcons name="receipt" size={24} color="#76ABAE" />
+            <View style={styles.dueBannerTextContainer}>
+              <Text style={styles.dueLabel}>TOTAL AMOUNT DUE</Text>
+              <Text style={styles.amountDue}>
+                ₱{expectedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
           </View>
         )}
 
-        <Text style={styles.label}>Amount Paid</Text>
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Payment Details</Text>
 
-        <TextInput
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="Enter amount"
-          keyboardType="numeric"
-          style={styles.input}
-        />
+          <Text style={styles.label}>Amount Received (₱)</Text>
+          <View style={styles.inputWrapper}>
+            <MaterialCommunityIcons name="currency-php" size={20} color="#76ABAE" style={styles.inputIcon} />
+            <TextInput
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="0.00"
+              keyboardType="numeric"
+              style={styles.input}
+              editable={!loading}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
 
-        <Text style={styles.label}>Reference Number</Text>
+          <Text style={styles.label}>Payment Method</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={paymentMethod}
+              onValueChange={(itemValue) => setPaymentMethod(itemValue)}
+              dropdownIconColor="#76ABAE"
+              enabled={!loading}
+            >
+              <Picker.Item label="Cash" value="Cash" />
+              <Picker.Item label="GCash" value="GCash" />
+              <Picker.Item label="Maya" value="Maya" />
+              <Picker.Item label="Bank Transfer" value="Bank Transfer" />
+            </Picker>
+          </View>
 
-        <TextInput
-          value={referenceNumber}
-          onChangeText={setReferenceNumber}
-          placeholder="Optional"
-          style={styles.input}
-        />
+          <Text style={styles.label}>Payment Date</Text>
+          <View style={styles.inputWrapper}>
+            <MaterialCommunityIcons name="calendar" size={20} color="#76ABAE" style={styles.inputIcon} />
+            <TextInput
+              value={paymentDate}
+              onChangeText={setPaymentDate}
+              placeholder="YYYY-MM-DD"
+              style={styles.input}
+              editable={!loading}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+        </View>
 
-        <Text style={styles.label}>Remarks</Text>
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Additional Information</Text>
 
-        <TextInput
-          value={remarks}
-          onChangeText={setRemarks}
-          placeholder="Optional"
-          style={styles.input}
-        />
+          <Text style={styles.label}>Reference Number</Text>
+          <View style={styles.inputWrapper}>
+            <MaterialCommunityIcons name="file-document-outline" size={20} color="#76ABAE" style={styles.inputIcon} />
+            <TextInput
+              value={referenceNumber}
+              onChangeText={setReferenceNumber}
+              placeholder="e.g. Transaction ID Reference"
+              style={styles.input}
+              editable={!loading}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+
+          <Text style={styles.label}>Remarks</Text>
+          <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+            <TextInput
+              value={remarks}
+              onChangeText={setRemarks}
+              placeholder="Add internal transaction notes here..."
+              style={[styles.input, styles.textArea]}
+              multiline
+              numberOfLines={3}
+              editable={!loading}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
+        </View>
 
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { opacity: 0.7 }]}
           onPress={handleSavePayment}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Save Payment</Text>
+            <>
+              <MaterialCommunityIcons name="check-circle" size={20} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.buttonText}>Confirm Payment</Text>
+            </>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -273,76 +311,149 @@ export default function RecordPayment() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F5F5F5",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    backgroundColor: "#273338",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: "#303841",
   },
   backButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#2B5748",
-    borderRadius: 8,
+    backgroundColor: "#76ABAE",
+    borderRadius: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#F2F4F7",
+    color: "#F5F5F5",
+    letterSpacing: 0.3,
   },
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F5F5F5",
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
+  dueBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 5,
+    borderLeftColor: "#76ABAE",
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 20,
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  label: {
-    fontWeight: "600",
-    marginTop: 10,
-    marginBottom: 8,
+  dueBannerTextContainer: {
+    marginLeft: 14,
+  },
+  dueLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#76ABAE",
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   amountDue: {
-    fontSize: 18,
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#303841",
+  },
+  formCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
-    marginBottom: 10,
+    color: "#303841",
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+    paddingBottom: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#303841",
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#76ABAE",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    marginBottom: 16,
+  },
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    height: 55,
-    marginBottom: 10,
+    flex: 1,
+    color: "#303841",
+    fontSize: 15,
+    fontWeight: "500",
   },
-  picker: {
-    backgroundColor: "#fff",
+  pickerContainer: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    marginBottom: 10,
+    borderColor: "#76ABAE",
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  textAreaWrapper: {
+    height: 90,
+    alignItems: "flex-start",
+    paddingVertical: 12,
+  },
+  textArea: {
+    height: "100%",
+    textAlignVertical: "top",
   },
   button: {
-    backgroundColor: "#10B981",
+    flexDirection: "row",
+    backgroundColor: "#FF5722",
     padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#FF5722",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+    marginTop: 8,
   },
   buttonText: {
-    color: "#fff",
-    textAlign: "center",
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
   },

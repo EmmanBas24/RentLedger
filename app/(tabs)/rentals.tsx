@@ -43,7 +43,10 @@ export default function Rentals() {
       const { data, error } = await supabase
         .from("rentals")
         .select(`
-          *,
+           id,
+            monthly_rent,
+            rental_status,
+            move_in_date,
           tenants(full_name),
           assets(property_name),
           rooms(room_number)
@@ -230,10 +233,10 @@ export default function Rentals() {
                   </View>
 
                   <View style={styles.cardBottomRow}>
-                    <Text style={styles.rent}>
-                      ₱ {Number(item.monthly_rent).toLocaleString()}
-                      <Text style={styles.rentPeriod}> / month</Text>
-                    </Text>
+                   <Text style={styles.rent}>
+  ₱ {Number(item.monthly_rent ?? 0).toLocaleString()}
+  <Text style={styles.rentPeriod}> / month</Text>
+</Text>
                     <MaterialCommunityIcons name="arrow-right" size={16} color="#76ABAE" />
                   </View>
                 </View>

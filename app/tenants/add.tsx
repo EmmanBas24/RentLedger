@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
 
 export default function AddTenant() {
@@ -23,12 +23,13 @@ export default function AddTenant() {
   const [notes, setNotes] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleSaveTenant = async () => {
     if (!fullName || !contactNumber) {
       Alert.alert(
-        "Missing Required Fields",
-        "Please fill out both Full Name and Contact Number before saving."
+        "Required Fields Missing",
+        "Please provide both Full Name and Contact Number parameters."
       );
       return;
     }
@@ -38,7 +39,7 @@ export default function AddTenant() {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert("Session Expired", "User session not found. Please log in again.");
+        Alert.alert("Session Expired", "User session context window dropped out. Please re-authenticate.");
         return;
       }
 
@@ -58,28 +59,28 @@ export default function AddTenant() {
         ]);
 
       if (error) {
-        Alert.alert("Error Creating Record", error.message);
+        Alert.alert("Execution Error", error.message);
         return;
       }
 
-      Alert.alert("Success", "Tenant profile has been created successfully.");
+      Alert.alert("Success", "Tenant added successfully.");
       router.back();
     } catch (error) {
       console.log(error);
-      Alert.alert("System Error", "An unexpected problem occurred. Please try again.");
+      Alert.alert("System Error", "An unmapped platform disruption occurred.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Structural Clean Header */}
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Premium Dark Accent Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#303841" />
+          <MaterialCommunityIcons name="chevron-left" size={26} color="#303841" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Tenant</Text>
+        <Text style={styles.headerTitle}>Onboard Occupant</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -90,109 +91,121 @@ export default function AddTenant() {
       >
         {/* Form Group: Full Name */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Full Name <Text style={styles.asterisk}>*</Text></Text>
+          <Text style={styles.label}>FULL NAME <Text style={styles.asterisk}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === "fullName" && styles.inputFocused]}
             placeholder="e.g. Juan Dela Cruz"
-            placeholderTextColor="#A0AEC0"
+            placeholderTextColor="#64748B"
             value={fullName}
             onChangeText={setFullName}
+            onFocus={() => setFocusedField("fullName")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
 
         {/* Form Group: Contact Number */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Contact Number <Text style={styles.asterisk}>*</Text></Text>
+          <Text style={styles.label}>CONTACT NUMBER <Text style={styles.asterisk}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === "contactNumber" && styles.inputFocused]}
             placeholder="e.g. 09123456789"
-            placeholderTextColor="#A0AEC0"
+            placeholderTextColor="#64748B"
             keyboardType="phone-pad"
             value={contactNumber}
             onChangeText={setContactNumber}
+            onFocus={() => setFocusedField("contactNumber")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
 
         {/* Form Group: Email */}
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Email Address</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
+            <Text style={styles.label}>EMAIL ADDRESS</Text>
+            <Text style={styles.optionalTag}>OPTIONAL</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === "email" && styles.inputFocused]}
             placeholder="e.g. juan.delacruz@gmail.com"
-            placeholderTextColor="#A0AEC0"
+            placeholderTextColor="#64748B"
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
+            onFocus={() => setFocusedField("email")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
 
         {/* Form Group: Permanent Address */}
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Permanent Address</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
+            <Text style={styles.label}>PERMANENT ADDRESS</Text>
+            <Text style={styles.optionalTag}>OPTIONAL</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === "address" && styles.inputFocused]}
             placeholder="e.g. Cebu City, Cebu"
-            placeholderTextColor="#A0AEC0"
+            placeholderTextColor="#64748B"
             value={address}
             onChangeText={setAddress}
+            onFocus={() => setFocusedField("address")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
 
         {/* Form Group: Emergency Contact */}
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Emergency Contact Number</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
+            <Text style={styles.label}>EMERGENCY CONTACT REFERENCE</Text>
+            <Text style={styles.optionalTag}>OPTIONAL</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === "emergencyContact" && styles.inputFocused]}
             placeholder="e.g. 09123456789"
-            placeholderTextColor="#A0AEC0"
+            placeholderTextColor="#64748B"
             keyboardType="phone-pad"
             value={emergencyContact}
             onChangeText={setEmergencyContact}
+            onFocus={() => setFocusedField("emergencyContact")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
 
         {/* Form Group: Additional Notes */}
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
-            <Text style={styles.label}>Additional Notes</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
+            <Text style={styles.label}>RECORDS & BACKGROUND NOTES</Text>
+            <Text style={styles.optionalTag}>OPTIONAL</Text>
           </View>
           <TextInput
-            style={[styles.input, styles.notesInput]}
-            placeholder="Enter reference details, landmark address info, or background checks..."
-            placeholderTextColor="#A0AEC0"
+            style={[styles.input, styles.notesInput, focusedField === "notes" && styles.inputFocused]}
+            placeholder="Enter reference details, baseline info check verification tags..."
+            placeholderTextColor="#64748B"
             multiline
             textAlignVertical="top"
             value={notes}
             onChangeText={setNotes}
+            onFocus={() => setFocusedField("notes")}
+            onBlur={() => setFocusedField(null)}
           />
         </View>
       </ScrollView>
 
-      {/* Persistent Bottom CTA Bar */}
+      {/* Persistent Premium Action Bar */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.button}
           onPress={handleSaveTenant}
           disabled={loading}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
         >
           {loading ? (
-            <ActivityIndicator color="#F5F5F5" size="small" />
+            <ActivityIndicator color="#FFF" size="small" />
           ) : (
             <>
-              <MaterialCommunityIcons name="content-save-outline" size={20} color="#F5F5F5" style={{ marginRight: 6 }} />
-              <Text style={styles.buttonText}>Save Tenant Profile</Text>
+              <MaterialCommunityIcons name="check-circle-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+              <Text style={styles.buttonText}>Commit Tenant Record</Text>
             </>
           )}
         </TouchableOpacity>
@@ -204,105 +217,125 @@ export default function AddTenant() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 12,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: "#F8FAFC",
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 55,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     color: "#303841",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
     paddingBottom: 40,
   },
   formGroup: {
-    marginBottom: 20,
+    marginBottom: 22,
   },
   labelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#303841",
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#303841", // Deep dark contrast text color
     marginBottom: 8,
+    letterSpacing: 0.6,
   },
   asterisk: {
-    color: "#FF5722",
+    color: "#EF4444",
+    fontWeight: "900",
   },
   optionalTag: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#76ABAE",
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#4F7072", // Darker dark-teal variance 
+    marginBottom: 8,
+    letterSpacing: 0.4,
   },
   input: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
+    borderColor: "#CBD5E1", // Enhanced contrast border color
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: "#303841",
-    fontSize: 15,
-    fontWeight: "500",
+    color: "#1E293B", // Strong dark dynamic value input
+    fontSize: 14,
+    fontWeight: "600",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  inputFocused: {
+    borderColor: "#303841", // Striking clear signature boundary outline focus
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#303841",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   notesInput: {
     height: 120,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   bottomBar: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 24,
     borderTopWidth: 1,
     borderColor: "#E2E8F0",
   },
   button: {
-    backgroundColor: "#FF5722",
+    backgroundColor: "#303841", // Deep premium charcoal color profile button track setup
     height: 54,
-    borderRadius: 14,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#FF5722",
+    shadowColor: "#303841",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 3,
   },
   buttonText: {
-    color: "#F5F5F5",
+    color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
-    letterSpacing: -0.2,
+    fontSize: 15,
+    letterSpacing: -0.1,
   },
 });

@@ -64,49 +64,63 @@ export default function Payments() {
         console.log("Supabase Fetch Error:", error);
         return;
       }
-
+    
       const today = new Date();
 
+    
+console.log(
+  "FIRST PAYMENT RAW:",
+  JSON.stringify(data?.[0], null, 2)
+);
       const processedData: Payment[] = (data || []).map((item: any) => {
-        let displayStatus = "Due";
-        if (item.payment_status === "Paid") {
-          displayStatus = "Paid";
-        } else {
-          const dueDate = new Date(item.due_date);
-          if (dueDate < today) {
-            displayStatus = "Overdue";
-          }
-        }
-
-        return {
-          id: item.id,
-          billing_month: item.billing_month || "Monthly Rent",
-          amount: Number(item.amount) || 0,
-          due_date: item.due_date,
-          payment_status: displayStatus,
-          tenant_name: item.rentals?.tenants?.full_name || "Unknown Tenant",
-          room_number: item.rentals?.rooms?.room_number || "N/A",
-        };
-      });
+  try {
+    return {
+      id: item.id,
+      billing_month: item.billing_month || "Monthly Rent",
+      amount: Number(item.amount) || 0,
+      due_date: item.due_date,
+      payment_status: item.payment_status,
+      tenant_name:
+        item.rentals?.tenants?.full_name ||
+        "Unknown Tenant",
+      room_number:
+        item.rentals?.rooms?.room_number ||
+        "N/A",
+    };
+  } catch (err) {
+    console.log("MAP ERROR:", err);
+    console.log("BROKEN ITEM:", item);
+    throw err;
+  }
+});
 
       setAllUnfilteredPayments(processedData);
-      console.log("FORMATTED DATA:", processedData);
 
       // Cleaned status filter row checks
-      const filteredData = processedData.filter((item) => {
-        if (activeFilter === "Paid") {
-          return item.payment_status === "Paid";
-        }
-        if (activeFilter === "Due") {
-          return item.payment_status === "Due";
-        }
-        if (activeFilter === "Overdue") {
-          return item.payment_status === "Overdue";
-        }
-        return true;
-      });
+      let filteredData = processedData;
 
-      console.log("FILTERED DATA:", filteredData);
+if (activeFilter !== "All") {
+  console.log("START FILTER");
+
+  filteredData = processedData.filter((item) => {
+    console.log(
+      "CHECKING:",
+      item.id,
+      item.payment_status
+    );
+
+    return item.payment_status === activeFilter;
+  });
+
+  console.log(
+    "AFTER FILTER:",
+    filteredData.length
+  );
+}
+
+
+setPayments(filteredData);
+
       setPayments(filteredData);
     } catch (error) {
       console.log("Error handling system parsing metrics loop:", error);
@@ -241,13 +255,10 @@ export default function Payments() {
               const theme = getStatusStyles(item.payment_status);
               return (
                 <TouchableOpacity
-                  style={styles.card}
-                  activeOpacity={0.9}
-                  onPress={() => router.push({
-                    pathname: "/payments/record-payment",
-                    params: { paymentId: item.id }
-                  })}
-                >
+  style={styles.card}
+  activeOpacity={0.9}
+  onPress={() => router.push(`/payments/${item.id}`)} // Redirects directly to the specific payment ID details screen
+>
                   <View style={styles.cardContent}>
                     <View style={styles.cardHeaderRow}>
                       <View style={styles.nameContainer}>

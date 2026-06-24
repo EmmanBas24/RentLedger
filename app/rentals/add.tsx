@@ -35,6 +35,7 @@ interface Room {
 
 export default function AddRental() {
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -45,9 +46,11 @@ export default function AddRental() {
   const [roomId, setRoomId] = useState("");
 
   const [monthlyRent, setMonthlyRent] = useState("");
- const [amountPaid, setAmountPaid] = useState("");
-  const [moveInDate, setMoveInDate] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState(""); // NEW: Payment Method State
+  const [amountPaid, setAmountPaid] = useState("");
+  const [moveInDate, setMoveInDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   useEffect(() => {
     fetchTenants();
@@ -56,66 +59,72 @@ export default function AddRental() {
 
   useEffect(() => {
     if (assetId) {
+      setRoomId("");
+      setMonthlyRent("");
       fetchRooms(assetId);
+    } else {
+      setRooms([]);
+      setRoomId("");
+      setMonthlyRent("");
     }
   }, [assetId]);
 
   const fetchTenants = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setTenants([]);
-      return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("tenants")
+        .select("id, full_name, status")
+        .eq("user_id", user.id)
+        .order("full_name");
+      setTenants(data || []);
+    } catch (err) {
+      console.log("Fetch Error:", err);
     }
-
-    const { data } = await supabase
-      .from("tenants")
-      .select("id, full_name, status")
-      .eq("user_id", user.id)
-      .order("full_name");
-
-    setTenants(data || []);
   };
 
   const fetchAssets = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setAssets([]);
-      return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("assets")
+        .select("id, property_name")
+        .eq("user_id", user.id)
+        .order("property_name");
+      setAssets(data || []);
+    } catch (err) {
+      console.log("Fetch Error:", err);
     }
-
-    const { data } = await supabase
-      .from("assets")
-      .select("id, property_name")
-      .eq("user_id", user.id)
-      .order("property_name");
-
-    setAssets(data || []);
   };
 
   const fetchRooms = async (selectedAssetId: string) => {
-    const { data } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("asset_id", selectedAssetId)
-      .eq("status", "Available");
+    try {
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("asset_id", selectedAssetId)
+        .eq("status", "Available");
 
-    setRooms(data || []);
+      if (error) {
+        setRooms([]);
+        return;
+      }
+      setRooms(data || []);
+    } catch (err) {
+      setRooms([]);
+    }
   };
 
   const handleRoomChange = (selectedRoomId: string) => {
     setRoomId(selectedRoomId);
-
-    const selectedRoom = rooms.find((room) => room.id === selectedRoomId);
-
-    if (selectedRoom) {
-      setMonthlyRent(selectedRoom.monthly_rent.toString());
+    if (!selectedRoomId || !rooms || !Array.isArray(rooms)) {
+      setMonthlyRent("");
+      return;
     }
+    const selectedRoom = rooms.find((room) => room.id === selectedRoomId);
+    setMonthlyRent(selectedRoom ? String(selectedRoom.monthly_rent ?? "") : "");
   };
 
   const isValidDate = (value: string) => {
@@ -127,72 +136,32 @@ export default function AddRental() {
 
   const handleCreateRental = async () => {
     const monthlyRentValue = Number(monthlyRent);
-   const amountPaidValue = Number(amountPaid || 0);
+    const amountPaidValue = Number(amountPaid || 0);
 
-    if (!tenantId || !assetId || !roomId) {
-      Alert.alert(
-        "Validation Error",
-        "Please choose a tenant, property, and room."
-      );
+    if (!tenantId || !assetId || !roomId || !paymentMethod || !moveInDate) {
+      Alert.alert("Missing Fields", "Please complete all mandatory parameters.");
       return;
     }
 
     if (!monthlyRent || monthlyRentValue <= 0) {
-      Alert.alert(
-        "Validation Error",
-        "Select a room with a valid monthly rent."
-      );
+      Alert.alert("Validation Error", "Select a room holding a valid pricing matrix.");
       return;
     }
 
-   if (!amountPaid || amountPaidValue < monthlyRentValue) {
-      Alert.alert(
-        "Validation Error",
-        `Advance payment must be at least equal to the monthly rent (₱${monthlyRentValue.toLocaleString()}).`
-      );
+    if (amountPaidValue < monthlyRentValue) {
+      Alert.alert("Validation Error", `Advance payment must meet base floor rent (₱${monthlyRentValue.toLocaleString()}).`);
       return;
     }
 
-    // NEW: Enforce selecting a payment method
-    if (!paymentMethod) {
-      Alert.alert(
-        "Validation Error",
-        "Please select a payment method for the advance payment."
-      );
-      return;
-    }
-
-    if (!moveInDate || !isValidDate(moveInDate)) {
-      Alert.alert(
-        "Validation Error",
-        "Enter a valid move-in date in YYYY-MM-DD format."
-      );
-      return;
-    }
-
-    const startDateObj = new Date(moveInDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (startDateObj < today) {
-      Alert.alert(
-        "Validation Error",
-        "Move-in date cannot be in the past."
-      );
+    if (!isValidDate(moveInDate)) {
+      Alert.alert("Validation Error", "Enter date framework formatted cleanly in YYYY-MM-DD.");
       return;
     }
 
     try {
       setLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        Alert.alert("Error", "User session not found.");
-        setLoading(false);
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No session");
 
       const { data, error } = await supabase
         .from("rentals")
@@ -210,223 +179,209 @@ export default function AddRental() {
         .select()
         .single();
 
-      if (error) {
-        Alert.alert("Rental Error", error.message);
-        setLoading(false);
-        return;
-      }
+      if (error || !data) throw error;
 
       const rentalId = data.id;
-     const paidMonths =
-  Math.floor(
-    amountPaidValue /
-    monthlyRentValue
-  );
-      
-      const dayTarget = parseInt(moveInDate.split("-")[2], 10);
+      const paidMonths = Math.floor(amountPaidValue / monthlyRentValue);
+      const startDateObj = new Date(moveInDate);
+      const dateParts = moveInDate.split("-");
+      const dayTarget = parseInt(dateParts[2], 10);
       const baseYear = startDateObj.getFullYear();
       const baseMonth = startDateObj.getMonth();
 
       const paymentRecords = [];
 
-      // Generate Auto-Paid Months from Advance Payments
-    for (let i = 0; i < paidMonths; i++){
+      for (let i = 0; i < paidMonths; i++) {
         const dueDate = new Date(baseYear, baseMonth + i, dayTarget);
-        const billingMonth = dueDate.toLocaleString("en-US", {
-          month: "long",
-          year: "numeric",
-         });
-
+        const billingMonth = dueDate.toLocaleString("en-US", { month: "long", year: "numeric" });
         paymentRecords.push({
+          user_id: user.id,
           rental_id: rentalId,
           billing_month: billingMonth,
           amount: monthlyRentValue,
+          amount_paid: i === 0 ? amountPaidValue : null,
           due_date: dueDate.toISOString().split("T")[0],
           payment_date: moveInDate,
           payment_status: "Paid",
-          payment_method: paymentMethod, // NEW: Connected to transaction mapping row
+          payment_method: i === 0 ? paymentMethod : null,
         });
       }
 
-      // Generate Next Following Unpaid Active "Due" Month
-   const nextDueDate = new Date(
-  baseYear,
-  baseMonth + paidMonths,
-  dayTarget
-);
-      const nextBillingMonth = nextDueDate.toLocaleString("en-US", {
-        month: "long",
-        year: "numeric",
-      });
-
+      const nextDueDate = new Date(baseYear, baseMonth + paidMonths, dayTarget);
+      const nextBillingMonth = nextDueDate.toLocaleString("en-US", { month: "long", year: "numeric" });
       paymentRecords.push({
+        user_id: user.id,
         rental_id: rentalId,
         billing_month: nextBillingMonth,
         amount: monthlyRentValue,
+        amount_paid: null,
         due_date: nextDueDate.toISOString().split("T")[0],
         payment_status: "Due",
-        payment_method: null, // Left empty because it hasn't been collected yet
+        payment_method: null,
       });
 
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .insert(
-          paymentRecords.map((record) => ({
-            ...record,
-            user_id: user.id,
-          }))
-        );
+      await supabase.from("payments").insert(paymentRecords);
+      await Promise.all([
+        supabase.from("rooms").update({ status: "Occupied" }).eq("id", roomId),
+        supabase.from("tenants").update({ status: "Active" }).eq("id", tenantId)
+      ]);
 
-      if (paymentError) {
-        console.log("Payment Error:", paymentError);
-      }
-
-      await supabase
-        .from("rooms")
-        .update({ status: "Occupied" })
-        .eq("id", roomId);
-
-      await supabase
-        .from("tenants")
-        .update({ status: "Active" })
-        .eq("id", tenantId);
-
-      Alert.alert("Success", "Rental created successfully.");
-      router.back();
+      Alert.alert("Success", "Rental file deployed safely.", [{ text: "OK", onPress: () => router.back() }]);
     } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Something went wrong.");
+      Alert.alert("Error", "Could not complete core execution loop safely.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Normalized Clean Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={20} color="#FFF" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#303841" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Rental</Text>
-        <View style={{ width: 36 }} />
+        <Text style={styles.headerTitle}>Add New Rental</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.container}>
-      
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Tenant</Text>
-          <View style={styles.pickerContainer}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Single Consolidated Unified Card Container */}
+        <View style={styles.formCard}>
+          
+          <Text style={styles.label}>SELECT TENANT</Text>
+          <View style={[styles.pickerContainer, focusedField === "tenant" && styles.inputFocused]}>
             <Picker
               selectedValue={tenantId}
               onValueChange={setTenantId}
-              dropdownIconColor="#76ABAE"
+              dropdownIconColor="#303841"
+              enabled={!loading}
+              onFocus={() => setFocusedField("tenant")}
+              onBlur={() => setFocusedField(null)}
+              style={styles.picker}
             >
-              <Picker.Item label="Select Tenant" value="" />
-              {tenants.map((tenant) => (
-                <Picker.Item
-                  key={tenant.id}
-                  label={`${tenant.full_name} (${tenant.status})`}
-                  value={tenant.id}
-                />
+              <Picker.Item label="Choose Tenant" value="" style={styles.placeholderText} />
+              {tenants.map((t) => (
+                <Picker.Item key={t.id} label={`${t.full_name} (${t.status})`} value={t.id} />
               ))}
             </Picker>
           </View>
 
-          <Text style={styles.label}>Property</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={styles.label}>ASSIGN PROPERTY</Text>
+          <View style={[styles.pickerContainer, focusedField === "asset" && styles.inputFocused]}>
             <Picker
               selectedValue={assetId}
               onValueChange={setAssetId}
-              dropdownIconColor="#76ABAE"
+              dropdownIconColor="#303841"
+              enabled={!loading}
+              onFocus={() => setFocusedField("asset")}
+              onBlur={() => setFocusedField(null)}
+              style={styles.picker}
             >
-              <Picker.Item label="Select Property" value="" />
-              {assets.map((asset) => (
-                <Picker.Item
-                  key={asset.id}
-                  label={asset.property_name}
-                  value={asset.id}
-                />
+              <Picker.Item label="Choose Property" value="" style={styles.placeholderText} />
+              {assets.map((a) => (
+                <Picker.Item key={a.id} label={a.property_name} value={a.id} />
               ))}
             </Picker>
           </View>
 
-          <Text style={styles.label}>Room</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={styles.label}>ASSIGN ROOM</Text>
+          <View style={[styles.pickerContainer, focusedField === "room" && styles.inputFocused, !assetId && styles.disabledField]}>
             <Picker
               selectedValue={roomId}
               onValueChange={handleRoomChange}
-              dropdownIconColor="#76ABAE"
+              dropdownIconColor="#303841"
+              enabled={!loading && !!assetId}
+              onFocus={() => setFocusedField("room")}
+              onBlur={() => setFocusedField(null)}
+              style={styles.picker}
             >
-              <Picker.Item label="Select Room" value="" />
-              {rooms.map((room) => (
-                <Picker.Item
-                  key={room.id}
-                  label={`${room.room_number} — ₱${room.monthly_rent.toLocaleString()}`}
-                  value={room.id}
-                />
+              <Picker.Item label="Choose Room" value="" style={styles.placeholderText} />
+              {rooms.map((r) => (
+                <Picker.Item key={r.id} label={r.room_number} value={r.id} />
               ))}
             </Picker>
           </View>
 
-          <Text style={styles.label}>Monthly Rent</Text>
-          <TextInput
-            value={monthlyRent}
-            editable={false}
-            style={[styles.input, styles.disabledInput]}
-          />
+          <Text style={styles.label}>MONTHLY BASE RENT (₱)</Text>
+          <View style={[styles.inputWrapper, styles.disabledField]}>
+            <MaterialCommunityIcons name="currency-php" size={18} color="#94A3B8" style={styles.inputIcon} />
+            <TextInput
+              value={monthlyRent ? Number(monthlyRent).toLocaleString() : ""}
+              editable={false}
+              style={[styles.input, { color: "#94A3B8" }]}
+              placeholder="0.00"
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
 
-     <Text style={styles.label}>
-  Amount Paid
-</Text>
-          <TextInput
-           value={amountPaid}
-onChangeText={setAmountPaid}
-            keyboardType="numeric"
-   placeholder="Enter amount received"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-          />
+          <Text style={styles.label}>ADVANCE PAYMENT AMOUNT (₱)</Text>
+          <View style={[styles.inputWrapper, focusedField === "amountPaid" && styles.inputFocused]}>
+            <MaterialCommunityIcons name="cash-multiple" size={18} color="#303841" style={styles.inputIcon} />
+            <TextInput
+              value={amountPaid}
+              onChangeText={setAmountPaid}
+              keyboardType="numeric"
+              placeholder="0.00"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+              editable={!loading}
+              onFocus={() => setFocusedField("amountPaid")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
 
-          {/* NEW: Payment Method Form Field Block */}
-          <Text style={styles.label}>Payment Method (For Advance Deposit)</Text>
-          <View style={styles.pickerContainer}>
+          <Text style={styles.label}>PAYMENT METHOD</Text>
+          <View style={[styles.pickerContainer, focusedField === "method" && styles.inputFocused]}>
             <Picker
               selectedValue={paymentMethod}
               onValueChange={setPaymentMethod}
-              dropdownIconColor="#76ABAE"
+              dropdownIconColor="#303841"
+              enabled={!loading}
+              onFocus={() => setFocusedField("method")}
+              onBlur={() => setFocusedField(null)}
+              style={styles.picker}
             >
-              <Picker.Item label="Select Payment Method" value="" />
+              <Picker.Item label="Select Method" value="" style={styles.placeholderText} />
               <Picker.Item label="Cash" value="Cash" />
               <Picker.Item label="GCash" value="GCash" />
               <Picker.Item label="Maya" value="Maya" />
               <Picker.Item label="Bank Transfer" value="Bank Transfer" />
-              <Picker.Item label="Other" value="Other" />
             </Picker>
           </View>
 
-          <Text style={styles.label}>Move-in Date</Text>
-          <TextInput
-            value={moveInDate}
-            onChangeText={setMoveInDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-          />
+          <Text style={styles.label}>START / MOVE-IN DATE</Text>
+          <View style={[styles.inputWrapper, focusedField === "moveIn" && styles.inputFocused]}>
+            <MaterialCommunityIcons name="calendar" size={18} color="#303841" style={styles.inputIcon} />
+            <TextInput
+              value={moveInDate}
+              onChangeText={setMoveInDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+              editable={!loading}
+              onFocus={() => setFocusedField("moveIn")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
         </View>
 
+        {/* Action Button */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { opacity: 0.8 }]}
           onPress={handleCreateRental}
           disabled={loading}
+          activeOpacity={0.8}
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color="#FFF" size="small" />
           ) : (
-            <Text style={styles.buttonText}>Create Rental</Text>
+            <Text style={styles.buttonText}>Save Rental</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -437,91 +392,108 @@ onChangeText={setAmountPaid}
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: "#303841",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: "#F8FAFC",
   },
   backButton: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#76ABAE",
-    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#F5F5F5",
+    color: "#303841",
   },
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
-    padding: 20,
+    backgroundColor: "#F8FAFC",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#303841",
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  formCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     marginBottom: 20,
   },
-  section: {
-    backgroundColor: "#FFF",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#303841",
-    marginTop: 12,
-    marginBottom: 6,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    marginBottom: 16,
+  },
+  inputIcon: {
+    marginRight: 8,
   },
   input: {
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#76ABAE",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
+    flex: 1,
     color: "#303841",
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: "600",
   },
-  disabledInput: {
-    backgroundColor: "#F5F5F5",
-    borderColor: "#E5E7EB",
-    color: "#64748B",
+  inputFocused: {
+    borderColor: "#303841",
+  },
+  disabledField: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    opacity: 0.7,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "#76ABAE",
+    borderColor: "#CBD5E1",
     borderRadius: 12,
-    backgroundColor: "#FFF",
-    marginBottom: 4,
-    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+    marginBottom: 16,
+    height: 48,
+    justifyContent: "center",
+  },
+  picker: {
+    color: "#303841",
+  },
+  placeholderText: {
+    color: "#94A3B8",
   },
   button: {
-    backgroundColor: "#FF5722",
-    padding: 16,
+    backgroundColor: "#303841",
+    height: 48,
     borderRadius: 12,
-    marginTop: 4,
-    marginBottom: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
-    color: "#FFF",
-    textAlign: "center",
+    color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 15,
   },
 });
