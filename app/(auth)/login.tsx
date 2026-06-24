@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image, // Added Image import
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
@@ -64,79 +65,81 @@ export default function Login() {
         imageStyle={styles.backgroundImage}
       >
         <View style={styles.overlay} />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          {/* Custom Styled Architectural Logo */}
-          <View style={styles.logoContainer}>
-            <View style={[styles.logoPanel, styles.panelLeft]} />
-            <View style={[styles.logoPanel, styles.panelTop]} />
-            <View style={[styles.logoPanel, styles.panelRight]} />
-          </View>
-          <Text style={styles.logoText}>RentLedger</Text>
-          <Text style={styles.subtitle}>The modern property ledger for Filipino landlords</Text>
-        </View>
-
-        <View style={styles.formSection}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              placeholder="you@example.com"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onFocus={() => setIsEmailFocused(true)}
-              onBlur={() => setIsEmailFocused(false)}
-              style={[styles.input, isEmailFocused && styles.inputFocused]}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                placeholder="••••••••"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
-                style={[styles.input, isPasswordFocused && styles.inputFocused, styles.inputWithIcon]}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            {/* FIXED: Swapped custom geometric panels for the branded image asset directly */}
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require("../../assets/images/image_f76906.png")} // Adjust this relative directory path if needed to match your project root structure
+                style={styles.logoImage}
+                resizeMode="contain"
               />
-              <TouchableOpacity style={styles.inputIcon} onPress={() => setShowPassword(s => !s)}>
-                <MaterialCommunityIcons name={showPassword ? "eye" : "eye-off"} size={20} color="#374151" />
-              </TouchableOpacity>
             </View>
+            <Text style={styles.logoText}>RentLedger</Text>
+            <Text style={styles.subtitle}>The modern property ledger for Filipino landlords</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          <View style={styles.formSection}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                placeholder="you@example.com"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
+                style={[styles.input, isEmailFocused && styles.inputFocused]}
+              />
+            </View>
 
-        <View style={styles.footerSection}>
-          <Text style={styles.footerText}>Don't have an account yet?</Text>
-          <Link href="/(auth)/register" asChild>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.linkText}>Create one</Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  onFocus={() => setIsPasswordFocused(true)}
+                  onBlur={() => setIsPasswordFocused(false)}
+                  style={[styles.input, isPasswordFocused && styles.inputFocused, styles.inputWithIcon]}
+                />
+                <TouchableOpacity style={styles.inputIcon} onPress={() => setShowPassword(s => !s)}>
+                  <MaterialCommunityIcons name={showPassword ? "eye" : "eye-off"} size={20} color="#374151" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
-          </Link>
-        </View>
-      </ScrollView>
+          </View>
+
+          <View style={styles.footerSection}>
+            <Text style={styles.footerText}>Don't have an account yet?</Text>
+            <Link href="/(auth)/register" asChild>
+              <TouchableOpacity activeOpacity={0.7}>
+                <Text style={styles.linkText}>Create one</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        </ScrollView>
       </ImageBackground>
     </KeyboardAvoidingView>
   );
@@ -157,43 +160,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 40,
   },
-  /* --- Logo Styling with the requested palette --- */
+  /* --- Cleaned Premium Logo Image Layout Configuration --- */
   logoContainer: {
-    width: 80,
-    height: 80,
-    marginBottom: 20,
-    position: "relative",
+    width: 90,
+    height: 90,
+    marginBottom: 12,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    overflow: "hidden",
   },
-  logoPanel: {
-    position: "absolute",
-    borderRadius: 4,
-    transform: [{ skewY: "-15deg" }],
-  },
-  panelLeft: {
-    width: 45,
-    height: 35,
-    backgroundColor: "#76ABAE",
-    left: 2,
-    bottom: 25,
-    zIndex: 1,
-  },
-  panelTop: {
-    width: 40,
-    height: 40,
-    backgroundColor: "#303841",
-    top: 5,
-    right: 12,
-    zIndex: 2,
-  },
-  panelRight: {
-    width: 45,
-    height: 40,
-    backgroundColor: "#FF5722",
-    right: 2,
-    bottom: 8,
-    zIndex: 3,
+  logoImage: {
+    width: "75%",
+    height: "75%",
   },
   /* -------------------------------------------------- */
   logoText: {
@@ -207,6 +192,7 @@ const styles = StyleSheet.create({
     color: "#76ABAE",
     marginTop: 6,
     fontWeight: "400",
+    textAlign: "center",
   },
   formSection: {
     marginBottom: 24,
@@ -230,7 +216,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#76ABAE",
+    borderColor: "#E2E8F0", // Kept light borders out of absolute state focus paths
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -239,7 +225,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   inputFocused: {
-    borderColor: "#303841",
+    borderColor: "#76ABAE",
     backgroundColor: "#FFFFFF",
   },
   button: {

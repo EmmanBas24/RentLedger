@@ -63,8 +63,7 @@ export default function RentalDetails() {
 
       setRental(data);
       await fetchPaymentSummary(data.id);
-    } catch (error) {
-      console.log(error);
+    } catch (error) {     
     } finally {
       setLoading(false);
     }

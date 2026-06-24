@@ -57,8 +57,6 @@ export default function Payments() {
         .order("due_date", { ascending: true });
 
       // REQUIRED SYSTEM TRACE DEBUG ENGINE LOGS
-      console.log("DATA:", data);
-      console.log("ERROR:", error);
 
       if (error) {
         console.log("Supabase Fetch Error:", error);
@@ -67,11 +65,6 @@ export default function Payments() {
     
       const today = new Date();
 
-    
-console.log(
-  "FIRST PAYMENT RAW:",
-  JSON.stringify(data?.[0], null, 2)
-);
       const processedData: Payment[] = (data || []).map((item: any) => {
   try {
     return {
@@ -95,7 +88,6 @@ console.log(
 });
 
       setAllUnfilteredPayments(processedData);
-
       // Cleaned status filter row checks
       let filteredData = processedData;
 
