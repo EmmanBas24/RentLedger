@@ -284,7 +284,7 @@ export default function Assets() {
 
               <View style={styles.subMetricRow}>
                 <View style={[styles.indicatorDot, { backgroundColor: "#67E8F9" }]} />
-                <Text style={styles.subMetricLabel}>Total Capacity:</Text>
+                <Text style={styles.subMetricLabel}>Total Units:</Text>
                 <Text style={[styles.subMetricValue, { color: "#67E8F9" }]}>{totalRoomsCalculated}</Text>
               </View>
             </View>

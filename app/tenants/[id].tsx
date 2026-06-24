@@ -67,7 +67,6 @@ export default function TenantDetails() {
     setLoading(false);
   };
 
-  // Explicit route forcing to ensure you land directly back on the main tenant directory index
   const handleBackNavigation = () => {
     router.replace("/tenants");
   };
@@ -101,8 +100,10 @@ export default function TenantDetails() {
         return;
       }
 
-      Alert.alert("Success", "Tenant updated successfully.");
+      Alert.alert("Success", "Tenant record updated smoothly.");
       setEditing(false);
+    } catch (err) {
+      console.log(err);
     } finally {
       setSaving(false);
     }
@@ -110,12 +111,12 @@ export default function TenantDetails() {
 
   const handleDelete = () => {
     Alert.alert(
-      "Delete Tenant",
-      "Are you sure you want to delete this tenant?",
+      "Delete Tenant Profile",
+      "Are you sure you want to completely remove this tenant account record?",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Delete",
+          text: "Delete Record",
           style: "destructive",
           onPress: async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -132,7 +133,7 @@ export default function TenantDetails() {
               return;
             }
 
-            Alert.alert("Success", "Tenant deleted.");
+            Alert.alert("Success", "Tenant records permanently expunged.");
             handleBackNavigation();
           },
         },
@@ -149,20 +150,20 @@ export default function TenantDetails() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Top Header Navigation */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackNavigation} style={styles.backButton}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#303841" />
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Premium Navigation Header */}
+      <View style={styles.headerBar}>
+        <TouchableOpacity onPress={handleBackNavigation} style={styles.headerButton}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#1E252B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tenant Profile</Text>
+        <Text style={styles.headerTitleText}>Tenant Directory Profile</Text>
         <TouchableOpacity 
           onPress={() => setEditing(!editing)} 
-          style={[styles.backButton, editing && styles.backButtonActive]}
+          style={[styles.headerButton, editing && styles.headerButtonActive]}
         >
           <MaterialCommunityIcons 
-            name={editing ? "close" : "pencil-outline"} 
-            size={20} 
+            name={editing ? "close" : "pencil"} 
+            size={18} 
             color={editing ? "#FF5722" : "#76ABAE"} 
           />
         </TouchableOpacity>
@@ -173,60 +174,87 @@ export default function TenantDetails() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Core Header Identity Card */}
+        {/* Core Identity Profile Card */}
         <View style={styles.identityCard}>
           <View style={styles.avatarCircle}>
-            <MaterialCommunityIcons name="account" size={32} color="#76ABAE" />
+            <MaterialCommunityIcons name="account-tie" size={28} color="#76ABAE" />
           </View>
           <View style={styles.identityDetails}>
             <Text style={styles.identityName}>{fullName || "Unnamed Tenant"}</Text>
             <View style={[
               styles.statusBadge, 
-              { backgroundColor: status === "Active" ? "rgba(118, 171, 174, 0.15)" : "rgba(255, 87, 34, 0.12)" }
+              { backgroundColor: status === "Active" ? "rgba(46, 125, 50, 0.1)" : "rgba(255, 87, 34, 0.1)" }
             ]}>
-              <Text style={[styles.statusBadgeText, { color: status === "Active" ? "#76ABAE" : "#FF5722" }]}>
+              <View style={[styles.statusDot, { backgroundColor: status === "Active" ? "#2E7D32" : "#FF5722" }]} />
+              <Text style={[styles.statusBadgeText, { color: status === "Active" ? "#2E7D32" : "#FF5722" }]}>
                 {status}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Detailed Form Matrix */}
-        <View style={styles.profileCard}>
+        {/* Dynamic Interactive Status Selector Panel (Only displays in Edit Mode) */}
+        {editing && (
+          <View style={styles.statusSelectPanel}>
+            <Text style={styles.sectionHeadingText}>Update Status State</Text>
+            <View style={styles.toggleRow}>
+              <TouchableOpacity 
+                style={[styles.toggleOption, status === "Active" && styles.toggleOptionActiveActive]}
+                onPress={() => setStatus("Active")}
+              >
+                <Text style={[styles.toggleText, status === "Active" && styles.toggleTextActive]}>Active</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleOption, status === "Inactive" && styles.toggleOptionActiveInactive]}
+                onPress={() => setStatus("Inactive")}
+              >
+                <Text style={[styles.toggleText, status === "Inactive" && styles.toggleTextActive]}>Inactive</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Detailed Form Matrix Field Management */}
+        <View style={styles.profileFormContainer}>
           {/* Field: Full Name */}
-          <View style={styles.fieldRow}>
+          <View style={styles.formFieldRow}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="account-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Full Name</Text>
+              <MaterialCommunityIcons name="card-account-details-outline" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Full Legal Name</Text>
             </View>
             <TextInput
               value={fullName}
               onChangeText={setFullName}
               editable={editing}
-              style={[styles.input, !editing && styles.inputDisabled]}
+              style={[styles.inputField, !editing && styles.inputFieldDisabled]}
+              placeholderTextColor="#A0AEC0"
             />
+            {/* FIXED: Added clear context baseline divider line below input data */}
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
 
           {/* Field: Contact Number */}
-          <View style={styles.fieldRow}>
+          <View style={styles.formFieldRow}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="phone-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Contact Number</Text>
+              <MaterialCommunityIcons name="cellphone" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Contact Number</Text>
             </View>
             <TextInput
               value={contactNumber}
               onChangeText={setContactNumber}
               editable={editing}
               keyboardType="phone-pad"
-              style={[styles.input, !editing && styles.inputDisabled]}
+              style={[styles.inputField, !editing && styles.inputFieldDisabled]}
+              placeholderTextColor="#A0AEC0"
             />
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
 
           {/* Field: Email */}
-          <View style={styles.fieldRow}>
+          <View style={styles.formFieldRow}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="email-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Email Address</Text>
+              <MaterialCommunityIcons name="email-fast-outline" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Email Address</Text>
             </View>
             <TextInput
               value={email}
@@ -234,43 +262,49 @@ export default function TenantDetails() {
               editable={editing}
               keyboardType="email-address"
               autoCapitalize="none"
-              style={[styles.input, !editing && styles.inputDisabled]}
+              style={[styles.inputField, !editing && styles.inputFieldDisabled]}
+              placeholderTextColor="#A0AEC0"
             />
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
 
           {/* Field: Address */}
-          <View style={styles.fieldRow}>
+          <View style={styles.formFieldRow}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Permanent Address</Text>
+              <MaterialCommunityIcons name="map-marker-radius-outline" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Permanent Registered Address</Text>
             </View>
             <TextInput
               value={address}
               onChangeText={setAddress}
               editable={editing}
-              style={[styles.input, !editing && styles.inputDisabled]}
+              style={[styles.inputField, !editing && styles.inputFieldDisabled]}
+              placeholderTextColor="#A0AEC0"
             />
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
 
           {/* Field: Emergency Contact */}
-          <View style={styles.fieldRow}>
+          <View style={styles.formFieldRow}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Emergency Contact</Text>
+              <MaterialCommunityIcons name="account-alert-outline" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Emergency Backup Contact</Text>
             </View>
             <TextInput
               value={emergencyContact}
               onChangeText={setEmergencyContact}
               editable={editing}
-              style={[styles.input, !editing && styles.inputDisabled]}
+              style={[styles.inputField, !editing && styles.inputFieldDisabled]}
+              placeholderTextColor="#A0AEC0"
             />
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
 
           {/* Field: Notes */}
-          <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
+          <View style={[styles.formFieldRow, { borderBottomWidth: 0 }]}>
             <View style={styles.labelSection}>
-              <MaterialCommunityIcons name="notebook-outline" size={16} color="#64748B" />
-              <Text style={styles.label}>Internal Notes</Text>
+              <MaterialCommunityIcons name="text-box-search-outline" size={15} color="#76ABAE" />
+              <Text style={styles.fieldLabelText}>Internal Landlord Ledger Notes</Text>
             </View>
             <TextInput
               value={notes}
@@ -278,20 +312,21 @@ export default function TenantDetails() {
               editable={editing}
               multiline
               style={[
-                styles.input, 
-                styles.textArea, 
-                !editing && styles.inputDisabled
+                styles.inputField, 
+                styles.textAreaField, 
+                !editing && styles.inputFieldDisabled
               ]}
-              placeholder={editing ? "Add structural details or general notes..." : "No additional remarks."}
+              placeholder={editing ? "Write special custom notes here..." : "No administrative ledger notes configured."}
               placeholderTextColor="#A0AEC0"
             />
+            {!editing && <View style={styles.viewModeLineDivider} />}
           </View>
         </View>
 
-        {/* Dynamic Context Buttons */}
+        {/* Form Context Control Blocks */}
         {editing ? (
           <TouchableOpacity
-            style={styles.saveButton}
+            style={styles.primaryActionBtn}
             onPress={handleUpdate}
             disabled={saving}
             activeOpacity={0.8}
@@ -299,17 +334,20 @@ export default function TenantDetails() {
             {saving ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveText}>Save Details</Text>
+              <>
+                <MaterialCommunityIcons name="check-all" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.primaryActionText}>Save Changes</Text>
+              </>
             )}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={styles.destructiveOutlineBtn}
+            style={styles.secondaryDangerBtn}
             onPress={handleDelete}
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF5722" style={{ marginRight: 6 }} />
-            <Text style={styles.destructiveOutlineText}>Remove Tenant Profile</Text>
+            <Text style={styles.secondaryDangerText}>Remove Tenant Profile</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -324,46 +362,46 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
   },
-  header: {
+  headerBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 14,
+    paddingBottom: 16,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#EEF2F6",
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#F5F5F5",
+  headerButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
     justifyContent: "center",
     alignItems: "center",
   },
-  backButtonActive: {
+  headerButtonActive: {
     backgroundColor: "rgba(255, 87, 34, 0.08)",
   },
-  headerTitle: {
-    fontSize: 17,
+  headerTitleText: {
+    fontSize: 16,
     fontWeight: "700",
-    color: "#303841",
-    letterSpacing: -0.3,
+    color: "#1E252B",
+    letterSpacing: -0.2,
   },
   identityCard: {
     flexDirection: "row",
@@ -372,115 +410,188 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginBottom: 16,
+    borderColor: "#EEF2F6",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 2,
   },
   avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(118, 171, 174, 0.12)",
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: "rgba(118, 171, 174, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 14,
   },
   identityDetails: {
     flex: 1,
-    gap: 4,
+    justifyContent: "center",
   },
   identityName: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#303841",
-    letterSpacing: -0.2,
+    color: "#1E252B",
+    letterSpacing: -0.3,
+    marginBottom: 4,
   },
   statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "flex-start",
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   statusBadgeText: {
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
-  profileCard: {
+  statusSelectPanel: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#EEF2F6",
+    marginBottom: 20,
+  },
+  sectionHeadingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  toggleOption: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
   },
-  fieldRow: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: "#F1F5F9",
+  toggleOptionActiveActive: {
+    borderColor: "#2E7D32",
+    backgroundColor: "rgba(46, 125, 50, 0.06)",
+  },
+  toggleOptionActiveInactive: {
+    borderColor: "#FF5722",
+    backgroundColor: "rgba(255, 87, 34, 0.06)",
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  toggleTextActive: {
+    color: "#1E252B",
+    fontWeight: "700",
+  },
+  profileFormContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#EEF2F6",
+    marginBottom: 26,
+  },
+  formFieldRow: {
+    paddingVertical: 14,
   },
   labelSection: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  label: {
+  fieldLabelText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#76ABAE",
+    color: "#64748B",
     textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
-  input: {
+  inputField: {
     fontSize: 15,
-    color: "#303841",
-    fontWeight: "500",
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    borderRadius: 8,
+    color: "#1E252B",
+    fontWeight: "600",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
-  inputDisabled: {
+  inputFieldDisabled: {
     backgroundColor: "transparent",
     borderWidth: 0,
     paddingHorizontal: 0,
-    color: "#475569",
+    paddingVertical: 4,
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "500",
   },
-  textArea: {
-    height: 80,
+  // FIXED: Style for clean baseline structural lines under view state elements
+  viewModeLineDivider: {
+    height: 1,
+    backgroundColor: "#EEF2F6",
+    marginTop: 10,
+    opacity: 0.8,
+  },
+  textAreaField: {
+    height: 90,
     textAlignVertical: "top",
-    paddingTop: 8,
+    paddingTop: 12,
   },
-  saveButton: {
+  primaryActionBtn: {
+    flexDirection: "row",
     backgroundColor: "#76ABAE",
-    borderRadius: 12,
-    height: 50,
+    borderRadius: 14,
+    height: 52,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#76ABAE",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
-  saveText: {
+  primaryActionText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+    letterSpacing: -0.1,
   },
-  destructiveOutlineBtn: {
-    borderWidth: 1,
+  secondaryDangerBtn: {
+    borderWidth: 1.5,
     borderColor: "#FF5722",
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
     justifyContent: "center",
     alignItems: "center",
     flexDirection: "row",
+    backgroundColor: "#FFFFFF",
   },
-  destructiveOutlineText: {
+  secondaryDangerText: {
     color: "#FF5722",
     fontSize: 14,
     fontWeight: "700",

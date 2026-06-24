@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"; // FIXED: Import SafeAreaView
 import { supabase } from "../../src/lib/supabase";
 
 interface Property {
@@ -40,7 +41,6 @@ export default function PropertyDetails() {
   const [monthlyRent, setMonthlyRent] = useState("");
   const [savingRoom, setSavingRoom] = useState(false);
 
-  // Automatically refresh records whenever returning focus back to this screen
   useFocusEffect(
     useCallback(() => {
       if (id) {
@@ -103,7 +103,6 @@ export default function PropertyDetails() {
     });
   };
 
-  // Navigates directly to your edit.tsx room control panel logic
   const handleEditRoom = (roomId: string) => {
     router.push({
       pathname: "/rooms/edit",
@@ -123,7 +122,6 @@ export default function PropertyDetails() {
         return;
       }
 
-      // Hard block if any child rooms inside this asset profile match occupied states
       const hasOccupiedRooms = linkedRooms?.some((room) => room.status === "Occupied");
       if (hasOccupiedRooms) {
         Alert.alert(
@@ -222,7 +220,8 @@ export default function PropertyDetails() {
   }
 
   return (
-    <View style={styles.safe}>
+    // FIXED: Changed root View container to a safe safeArea element tracking the hardware constraints top-only
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.headerBar}>
         <TouchableOpacity style={styles.headerNavButton} onPress={() => router.back()}>
           <MaterialCommunityIcons name="chevron-left" size={24} color="#303841" />
@@ -356,11 +355,12 @@ export default function PropertyDetails() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // FIXED: Adjusted safe background property logic cleanly
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   headerBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderColor: "#E2E8F0" },
   headerNavButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#F5F5F5", justifyContent: "center", alignItems: "center" },
