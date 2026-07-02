@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -52,22 +52,22 @@ export default function AddRental() {
   );
   const [paymentMethod, setPaymentMethod] = useState("");
 
-// useEffect(() => {
-//   fetchTenants();
-//   fetchAssets();
-// }, []);
+useEffect(() => {
+  fetchTenants();
+  fetchAssets();
+}, []);
 
-// useEffect(() => {
-//   if (assetId) {
-//     setRoomId("");
-//     setMonthlyRent("");
-//     fetchRooms(assetId);
-//   } else {
-//     setRooms([]);
-//     setRoomId("");
-//     setMonthlyRent("");
-//   }
-// }, [assetId]);
+useEffect(() => {
+  if (assetId) {
+    setRoomId("");
+    setMonthlyRent("");
+    fetchRooms(assetId);
+  } else {
+    setRooms([]);
+    setRoomId("");
+    setMonthlyRent("");
+  }
+}, [assetId]);
 
   const fetchTenants = async () => {
     try {

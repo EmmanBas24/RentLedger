@@ -36,10 +36,15 @@ export default function Register() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+     const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: {
+      full_name: fullName,
+    },
+  },
+});
 
       if (error) {
         Alert.alert("Registration Failed", error.message);
@@ -70,11 +75,16 @@ export default function Register() {
       }
 
       // Updated workflow message telling user to click validation link
-      Alert.alert(
-        "Verification Email Sent",
-        "Registration complete! Please check your email inbox and tap the validation confirmation link to activate your system access.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-      );
+     Alert.alert(
+  "Verify Your Email",
+  "Your account has been created successfully.\n\nA verification email has been sent to your email address.\n\nPlease open your inbox, click the verification link, then return to RentLedger and sign in.",
+  [
+    {
+      text: "OK",
+      onPress: () => router.replace("/(auth)/login"),
+    },
+  ]
+);
     } catch (err) {
       console.log("REGISTER ERROR:", err);
       Alert.alert("Error", "Something went wrong.");

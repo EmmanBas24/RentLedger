@@ -56,66 +56,38 @@ export default function Payments() {
         .neq("payment_status", "Cancelled") // Exclude cancelled invoices from ledger operations
         .order("due_date", { ascending: true });
 
-      // REQUIRED SYSTEM TRACE DEBUG ENGINE LOGS
-
       if (error) {
-        console.log("Supabase Fetch Error:", error);
         return;
       }
-    
-      const today = new Date();
 
       const processedData: Payment[] = (data || []).map((item: any) => {
-  try {
-    return {
-      id: item.id,
-      billing_month: item.billing_month || "Monthly Rent",
-      amount: Number(item.amount) || 0,
-      due_date: item.due_date,
-      payment_status: item.payment_status,
-      tenant_name:
-        item.rentals?.tenants?.full_name ||
-        "Unknown Tenant",
-      room_number:
-        item.rentals?.rooms?.room_number ||
-        "N/A",
-    };
-  } catch (err) {
-    console.log("MAP ERROR:", err);
-    console.log("BROKEN ITEM:", item);
-    throw err;
-  }
-});
+        try {
+          return {
+            id: item.id,
+            billing_month: item.billing_month || "Monthly Rent",
+            amount: Number(item.amount) || 0,
+            due_date: item.due_date,
+            payment_status: item.payment_status,
+            tenant_name: item.rentals?.tenants?.full_name || "Unknown Tenant",
+            room_number: item.rentals?.rooms?.room_number || "N/A",
+          };
+        } catch (err) {
+          throw err;
+        }
+      });
 
       setAllUnfilteredPayments(processedData);
+      
       // Cleaned status filter row checks
       let filteredData = processedData;
 
-if (activeFilter !== "All") {
-  console.log("START FILTER");
-
-  filteredData = processedData.filter((item) => {
-    console.log(
-      "CHECKING:",
-      item.id,
-      item.payment_status
-    );
-
-    return item.payment_status === activeFilter;
-  });
-
-  console.log(
-    "AFTER FILTER:",
-    filteredData.length
-  );
-}
-
-
-setPayments(filteredData);
+      if (activeFilter !== "All") {
+        filteredData = processedData.filter((item) => item.payment_status === activeFilter);
+      }
 
       setPayments(filteredData);
     } catch (error) {
-      console.log("Error handling system parsing metrics loop:", error);
+      // Silently catch exceptions or route to an error state boundary if preferred
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -247,10 +219,10 @@ setPayments(filteredData);
               const theme = getStatusStyles(item.payment_status);
               return (
                 <TouchableOpacity
-  style={styles.card}
-  activeOpacity={0.9}
-  onPress={() => router.push(`/payments/${item.id}`)} // Redirects directly to the specific payment ID details screen
->
+                  style={styles.card}
+                  activeOpacity={0.9}
+                  onPress={() => router.push(`/payments/${item.id}`)}
+                >
                   <View style={styles.cardContent}>
                     <View style={styles.cardHeaderRow}>
                       <View style={styles.nameContainer}>
