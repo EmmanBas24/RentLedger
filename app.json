@@ -10,7 +10,8 @@
       "supportsTablet": true
     },
     "android": {
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.eryxe15.RentLedger"
     },
     "web": {
       "output": "static"
@@ -22,6 +23,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "12173382-eb5a-40cf-ae49-202e3d79002e"
+      }
     }
   }
 }

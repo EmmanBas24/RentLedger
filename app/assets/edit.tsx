@@ -1,9 +1,11 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Platform,
   ScrollView,
   StatusBar,
@@ -15,14 +17,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
+
 export default function EditAsset() {
   const { id } = useLocalSearchParams();
   const [propertyName, setPropertyName] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -32,12 +38,16 @@ export default function EditAsset() {
 
   const fetchAsset = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         Alert.alert("Error", "User session not found.");
         router.replace("/(auth)/login");
         return;
       }
+
+      setUserId(user.id);
 
       const { data, error } = await supabase
         .from("assets")
@@ -56,6 +66,7 @@ export default function EditAsset() {
       setPropertyType(data.property_type || "");
       setAddress(data.address || "");
       setDescription(data.description || "");
+      setImageUrl(data.image_url || null);
     } catch (error) {
       console.log(error);
       Alert.alert("Error", "Unable to load property profile.");
@@ -63,6 +74,62 @@ export default function EditAsset() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permissionResult.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your photo library to update the property image."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      setNewImageUri(result.assets[0].uri);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not select image.");
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!newImageUri) return imageUrl;
+
+    const fileExt = newImageUri.split(".").pop()?.toLowerCase() || "jpg";
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+
+    const response = await fetch(newImageUri);
+    const blob = await response.blob();
+    const arrayBuffer = await new Response(blob).arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from("properties")
+      .upload(fileName, arrayBuffer, {
+        contentType: `image/${fileExt}`,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("properties").getPublicUrl(fileName);
+
+    return publicUrl;
   };
 
   const handleSave = async () => {
@@ -77,10 +144,9 @@ export default function EditAsset() {
     try {
       setSaving(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert("Error", "User session context was lost.");
-        return;
+      let finalImageUrl = imageUrl;
+      if (newImageUri) {
+        finalImageUrl = await uploadImage();
       }
 
       const { error } = await supabase
@@ -90,9 +156,10 @@ export default function EditAsset() {
           property_type: propertyType.trim(),
           address: address.trim(),
           description: description.trim(),
+          image_url: finalImageUrl,
         })
         .eq("id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
       if (error) {
         Alert.alert("Update Failed", error.message);
@@ -101,9 +168,11 @@ export default function EditAsset() {
 
       Alert.alert("Success", "Asset modifications saved successfully.");
       router.back();
-    } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Unable to complete asset update operation.");
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message || "Unable to complete asset update operation."
+      );
     } finally {
       setSaving(false);
     }
@@ -117,28 +186,88 @@ export default function EditAsset() {
     );
   }
 
+  const displayImage = newImageUri || imageUrl;
+
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={false} />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={false}
+      />
 
-      {/* Perfectly Balanced Structural Screen Header */}
       <View style={styles.headerBar}>
-        <TouchableOpacity style={styles.headerNavButton} onPress={() => router.back()}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#303841" />
+        <TouchableOpacity
+          style={styles.headerNavButton}
+          onPress={() => router.back()}
+        >
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={24}
+            color="#303841"
+          />
         </TouchableOpacity>
         <Text style={styles.headerTitleText}>Edit Property</Text>
-        {/* Mirror element to keep the absolute textual layout perfectly centered */}
         <View style={styles.headerMirrorBlock} />
       </View>
 
-      <ScrollView 
-        style={styles.container} 
+      <ScrollView
+        style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Property Image Upload/Change */}
+        <View style={styles.formGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Property Photo</Text>
+            <Text style={styles.optionalTag}>Optional</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.imageUploadArea}
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+          >
+            {displayImage ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image
+                  source={{ uri: displayImage }}
+                  style={styles.imagePreview}
+                />
+                <View style={styles.imageOverlay}>
+                  <View style={styles.changePhotoBadge}>
+                    <MaterialCommunityIcons
+                      name="camera-flip-outline"
+                      size={14}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.changePhotoText}>Change Photo</Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <View style={styles.uploadIconCircle}>
+                  <MaterialCommunityIcons
+                    name="image-plus"
+                    size={28}
+                    color="#76ABAE"
+                  />
+                </View>
+                <Text style={styles.uploadTitle}>Upload Property Photo</Text>
+                <Text style={styles.uploadSubtitle}>
+                  Tap to select from your gallery
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Form Input Block: Property Name */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Property Name <Text style={styles.asterisk}>*</Text></Text>
+          <Text style={styles.label}>
+            Property Name <Text style={styles.asterisk}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
             value={propertyName}
@@ -150,7 +279,9 @@ export default function EditAsset() {
 
         {/* Form Input Block: Property Type */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Property Type <Text style={styles.asterisk}>*</Text></Text>
+          <Text style={styles.label}>
+            Property Type <Text style={styles.asterisk}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
             value={propertyType}
@@ -162,7 +293,9 @@ export default function EditAsset() {
 
         {/* Form Input Block: Address */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Location Address <Text style={styles.asterisk}>*</Text></Text>
+          <Text style={styles.label}>
+            Location Address <Text style={styles.asterisk}>*</Text>
+          </Text>
           <TextInput
             style={styles.input}
             value={address}
@@ -202,7 +335,12 @@ export default function EditAsset() {
             <ActivityIndicator color="#F5F5F5" size="small" />
           ) : (
             <>
-              <MaterialCommunityIcons name="check-all" size={20} color="#F5F5F5" style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons
+                name="check-all"
+                size={20}
+                color="#F5F5F5"
+                style={{ marginRight: 6 }}
+              />
               <Text style={styles.buttonText}>Save Modified Changes</Text>
             </>
           )}
@@ -222,7 +360,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    // Balanced structural padding heights removing heavy top gaps across platform profiles
     paddingTop: 12,
     paddingBottom: 14,
     backgroundColor: "#FFFFFF",
@@ -300,6 +437,69 @@ const styles = StyleSheet.create({
   description: {
     height: 140,
     lineHeight: 22,
+  },
+  imageUploadArea: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
+    backgroundColor: "#FFFFFF",
+  },
+  imagePlaceholder: {
+    paddingVertical: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F0F9FA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  uploadTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  uploadSubtitle: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    position: "relative",
+  },
+  imagePreview: {
+    width: "100%",
+    height: 180,
+    borderRadius: 14,
+  },
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "flex-end",
+  },
+  changePhotoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(30, 37, 43, 0.7)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  changePhotoText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   bottomBar: {
     backgroundColor: "#FFFFFF",

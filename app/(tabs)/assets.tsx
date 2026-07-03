@@ -3,11 +3,8 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -24,14 +21,15 @@ interface Asset {
   property_type: string;
   address: string;
   description: string;
-  rooms?: { id: string; status: string }[];
+  image_url?: string | null;
 }
 
 const getPropertyTypeStyles = (type: string) => {
   const normalized = type?.toLowerCase().trim() || "";
   if (normalized.includes("apart")) return { bg: "#E0F2FE", text: "#0369A1" };
   if (normalized.includes("condo")) return { bg: "#F3E8FF", text: "#6B21A8" };
-  if (normalized.includes("house") || normalized.includes("board")) return { bg: "#FEF3C7", text: "#92400E" };
+  if (normalized.includes("house") || normalized.includes("board"))
+    return { bg: "#FEF3C7", text: "#92400E" };
   return { bg: "#E2E8F0", text: "#475569" };
 };
 
@@ -41,15 +39,10 @@ export default function Assets() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [propertyName, setPropertyName] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [address, setAddress] = useState("");
-  const [description, setDescription] = useState("");
-  const [savingProperty, setSavingProperty] = useState(false);
-  
-  const [roomMetrics, setRoomMetrics] = useState<Record<string, { available: number; total: number }>>({});
+
+  const [roomMetrics, setRoomMetrics] = useState<
+    Record<string, { available: number; total: number }>
+  >({});
   const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
   const [totalOccupiedRooms, setTotalOccupiedRooms] = useState(0);
 
@@ -81,8 +74,8 @@ export default function Assets() {
     let globalAvailable = 0;
     let globalOccupied = 0;
     const metricsMap: Record<string, { available: number; total: number }> = {};
-    
-    ids.forEach(id => {
+
+    ids.forEach((id) => {
       metricsMap[id] = { available: 0, total: 0 };
     });
 
@@ -90,9 +83,9 @@ export default function Assets() {
       if (!metricsMap[room.asset_id]) {
         metricsMap[room.asset_id] = { available: 0, total: 0 };
       }
-      
+
       metricsMap[room.asset_id].total += 1;
-      
+
       if (room.status === "Available") {
         metricsMap[room.asset_id].available += 1;
         globalAvailable += 1;
@@ -108,7 +101,9 @@ export default function Assets() {
 
   const fetchAssets = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setAssets([]);
         setRoomMetrics({});
@@ -138,45 +133,6 @@ export default function Assets() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchAssets();
-  };
-
-  const handleSaveProperty = async () => {
-    if (!propertyName || !propertyType || !address) {
-      Alert.alert("Missing Required Fields", "Please fill in all mandatory data fields.");
-      return;
-    }
-    try {
-      setSavingProperty(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert("Session Error", "User authorization context not found.");
-        return;
-      }
-      const { error } = await supabase.from("assets").insert([
-        {
-          user_id: user.id,
-          property_name: propertyName.trim(),
-          property_type: propertyType.trim(),
-          address: address.trim(),
-          description: description.trim(),
-        },
-      ]);
-      if (error) {
-        Alert.alert("Error Creating Record", error.message);
-        return;
-      }
-      setPropertyName("");
-      setPropertyType("");
-      setAddress("");
-      setDescription("");
-      setShowAddModal(false);
-      fetchAssets();
-    } catch (err) {
-      console.log(err);
-      Alert.alert("System Error", "Something went wrong.");
-    } finally {
-      setSavingProperty(false);
-    }
   };
 
   const filteredAssets = assets.filter((asset) => {
@@ -213,31 +169,57 @@ export default function Assets() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.9}
-        onPress={() => router.push({ pathname: "/assets/[id]", params: { id: item.id } })}
+        onPress={() =>
+          router.push({ pathname: "/assets/[id]", params: { id: item.id } })
+        }
       >
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.cardImage} />
+        ) : (
+          <View style={styles.cardImagePlaceholder}>
+            <MaterialCommunityIcons
+              name="home-city-outline"
+              size={32}
+              color="#CBD5E1"
+            />
+          </View>
+        )}
+
         <View style={styles.cardContent}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.propertyName} numberOfLines={1}>
               {item.property_name}
             </Text>
-            <Text style={[styles.propertyType, { backgroundColor: typeColors.bg, color: typeColors.text }]}>
+            <Text
+              style={[
+                styles.propertyType,
+                { backgroundColor: typeColors.bg, color: typeColors.text },
+              ]}
+            >
               {item.property_type}
             </Text>
           </View>
-          
+
           <Text style={styles.address} numberOfLines={1}>
-            <MaterialCommunityIcons name="map-marker" size={13} color="#76ABAE" /> {item.address}
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={13}
+              color="#76ABAE"
+            />{" "}
+            {item.address}
           </Text>
 
           <View style={styles.cardBottomRow}>
             <View style={[styles.badge, badgeStyle]}>
               <View style={[styles.dot, dotStyle]} />
-              <Text style={[styles.badgeText, textStyle]}>
-                {badgeText}
-              </Text>
+              <Text style={[styles.badgeText, textStyle]}>{badgeText}</Text>
             </View>
             <View style={styles.arrowCircle}>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#76ABAE" />
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={16}
+                color="#76ABAE"
+              />
             </View>
           </View>
         </View>
@@ -260,39 +242,69 @@ export default function Assets() {
       <View style={styles.container}>
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>Property Overview</Text>
-          
+
           <View style={styles.heroMainGrid}>
             <View style={styles.heroPrimaryMetric}>
               <Text style={styles.heroMetricNumber}>{assets.length}</Text>
               <Text style={styles.heroMetricLabel}>Total Properties</Text>
             </View>
-            
+
             <View style={styles.heroDivider} />
 
             <View style={styles.heroSecondaryMetrics}>
               <View style={styles.subMetricRow}>
-                <View style={[styles.indicatorDot, { backgroundColor: "#4ECE7B" }]} />
+                <View
+                  style={[
+                    styles.indicatorDot,
+                    { backgroundColor: "#4ECE7B" },
+                  ]}
+                />
                 <Text style={styles.subMetricLabel}>Available Rooms:</Text>
-                <Text style={[styles.subMetricValue, { color: "#4ECE7B" }]}>{totalAvailableRooms}</Text>
-              </View>
-              
-              <View style={styles.subMetricRow}>
-                <View style={[styles.indicatorDot, { backgroundColor: "#F43F5E" }]} />
-                <Text style={styles.subMetricLabel}>Occupied Units:</Text>
-                <Text style={[styles.subMetricValue, { color: "#F43F5E" }]}>{totalOccupiedRooms}</Text>
+                <Text style={[styles.subMetricValue, { color: "#4ECE7B" }]}>
+                  {totalAvailableRooms}
+                </Text>
               </View>
 
               <View style={styles.subMetricRow}>
-                <View style={[styles.indicatorDot, { backgroundColor: "#67E8F9" }]} />
+                <View
+                  style={[
+                    styles.indicatorDot,
+                    { backgroundColor: "#F43F5E" },
+                  ]}
+                />
+                <Text style={styles.subMetricLabel}>Occupied Units:</Text>
+                <Text style={[styles.subMetricValue, { color: "#F43F5E" }]}>
+                  {totalOccupiedRooms}
+                </Text>
+              </View>
+
+              <View style={styles.subMetricRow}>
+                <View
+                  style={[
+                    styles.indicatorDot,
+                    { backgroundColor: "#67E8F9" },
+                  ]}
+                />
                 <Text style={styles.subMetricLabel}>Total Units:</Text>
-                <Text style={[styles.subMetricValue, { color: "#67E8F9" }]}>{totalRoomsCalculated}</Text>
+                <Text style={[styles.subMetricValue, { color: "#67E8F9" }]}>
+                  {totalRoomsCalculated}
+                </Text>
               </View>
             </View>
           </View>
         </View>
 
-        <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
-          <MaterialCommunityIcons name="magnify" size={20} color={isSearchFocused ? "#76ABAE" : "#64748B"} />
+        <View
+          style={[
+            styles.searchContainer,
+            isSearchFocused && styles.searchContainerFocused,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="magnify"
+            size={20}
+            color={isSearchFocused ? "#76ABAE" : "#64748B"}
+          />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -305,7 +317,11 @@ export default function Assets() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={18}
+                color="#94A3B8"
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -313,18 +329,29 @@ export default function Assets() {
         {assets.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <MaterialCommunityIcons name="home-city-outline" size={44} color="#76ABAE" />
+              <MaterialCommunityIcons
+                name="home-city-outline"
+                size={44}
+                color="#76ABAE"
+              />
             </View>
             <Text style={styles.emptyTitle}>No Properties Listed</Text>
             <Text style={styles.emptySubtitle}>
-              Your real estate assets ledger is empty. Tap below to introduce a property.
+              Your real estate assets ledger is empty. Tap below to introduce a
+              property.
             </Text>
           </View>
         ) : filteredAssets.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="text-box-search-outline" size={50} color="#CBD5E1" />
+            <MaterialCommunityIcons
+              name="text-box-search-outline"
+              size={50}
+              color="#CBD5E1"
+            />
             <Text style={styles.emptyTitle}>No Matches Found</Text>
-            <Text style={styles.emptySubtitle}>We couldn't track assets matching "{searchQuery}"</Text>
+            <Text style={styles.emptySubtitle}>
+              We couldn't track assets matching "{searchQuery}"
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -333,7 +360,11 @@ export default function Assets() {
             renderItem={renderProperty}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#76ABAE" />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#76ABAE"
+              />
             }
             showsVerticalScrollIndicator={false}
           />
@@ -342,83 +373,15 @@ export default function Assets() {
         <TouchableOpacity
           style={styles.addButton}
           activeOpacity={0.9}
-          onPress={() => setShowAddModal(true)}
+          onPress={() => router.push("/assets/add")}
         >
-          <MaterialCommunityIcons name="plus-circle" size={20} color="#FFFFFF" />
+          <MaterialCommunityIcons
+            name="plus-circle"
+            size={20}
+            color="#FFFFFF"
+          />
           <Text style={styles.addButtonText}>New Property</Text>
         </TouchableOpacity>
-
-        <Modal
-          animationType="slide"
-          transparent
-          visible={showAddModal}
-          onRequestClose={() => setShowAddModal(false)}
-        >
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"} 
-            style={styles.overlay}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add New Property</Text>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setShowAddModal(false)}>
-                  <MaterialCommunityIcons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.label}>Property Name *</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. Sunrise Heights Apartments"
-                placeholderTextColor="#94A3B8"
-                value={propertyName}
-                onChangeText={setPropertyName}
-              />
-
-              <Text style={styles.label}>Property Type *</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. Apartment, Condo, Boarding House"
-                placeholderTextColor="#94A3B8"
-                value={propertyType}
-                onChangeText={setPropertyType}
-              />
-
-              <Text style={styles.label}>Full Location Address *</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Street, Barangay, City/Province"
-                placeholderTextColor="#94A3B8"
-                value={address}
-                onChangeText={setAddress}
-              />
-
-              <Text style={styles.label}>Internal Private Notes <Text style={{fontWeight: "400", color:"#94A3B8"}}>(Optional)</Text></Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalDescription]}
-                multiline
-                textAlignVertical="top"
-                placeholder="Add gate codes, amenities or landmarks..."
-                placeholderTextColor="#94A3B8"
-                value={description}
-                onChangeText={setDescription}
-              />
-
-              <TouchableOpacity
-                style={styles.modalSaveButton}
-                activeOpacity={0.8}
-                onPress={handleSaveProperty}
-                disabled={savingProperty}
-              >
-                {savingProperty ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.modalSaveText}>Save Property Profile</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -431,7 +394,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC", 
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
     paddingTop: 8,
   },
@@ -442,7 +405,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   heroCard: {
-    backgroundColor: "#1E252B", 
+    backgroundColor: "#1E252B",
     borderRadius: 24,
     padding: 22,
     marginBottom: 16,
@@ -453,7 +416,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   heroTitle: {
-    color: "#76ABAE", 
+    color: "#76ABAE",
     fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -523,7 +486,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchContainerFocused: {
-    borderColor: "#76ABAE", 
+    borderColor: "#76ABAE",
     shadowColor: "#76ABAE",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -541,7 +504,6 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#FFFFFF",
-    padding: 12,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
@@ -551,9 +513,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 4,
     elevation: 2,
+    overflow: "hidden",
+  },
+  cardImage: {
+    width: "100%",
+    height: 140,
+  },
+  cardImagePlaceholder: {
+    width: "100%",
+    height: 100,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   cardContent: {
-    flex: 1,
+    padding: 12,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -690,79 +664,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     lineHeight: 20,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.4)",
-    justifyContent: "flex-end",
-  },
-  modalContainer: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    maxHeight: "85%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1E293B",
-    letterSpacing: -0.4,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#F1F5F9",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#334155",
-    marginBottom: 8,
-  },
-  modalInput: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 18,
-    color: "#1E293B",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  modalDescription: {
-    minHeight: 90,
-  },
-  modalSaveButton: {
-    backgroundColor: "#76ABAE",
-    padding: 15,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    shadowColor: "#76ABAE",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  modalSaveText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 15,
   },
 });

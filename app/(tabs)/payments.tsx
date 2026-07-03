@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
+import { generatePaymentReport } from "../../src/utils/generatePaymentReport";
 
 interface Payment {
   id: string;
@@ -31,6 +33,7 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("All");
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -41,7 +44,6 @@ export default function Payments() {
         return;
       }
 
-      // Query database matching strict foreign relations patterns & filtering out Cancelled rows
       const { data, error } = await supabase
         .from("payments")
         .select(`
@@ -53,7 +55,7 @@ export default function Payments() {
           )
         `)
         .eq("rentals.user_id", user.id)
-        .neq("payment_status", "Cancelled") // Exclude cancelled invoices from ledger operations
+        .neq("payment_status", "Cancelled")
         .order("due_date", { ascending: true });
 
       if (error) {
@@ -77,8 +79,7 @@ export default function Payments() {
       });
 
       setAllUnfilteredPayments(processedData);
-      
-      // Cleaned status filter row checks
+
       let filteredData = processedData;
 
       if (activeFilter !== "All") {
@@ -87,7 +88,7 @@ export default function Payments() {
 
       setPayments(filteredData);
     } catch (error) {
-      // Silently catch exceptions or route to an error state boundary if preferred
+      // Silently catch exceptions
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -103,6 +104,21 @@ export default function Payments() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchPayments();
+  };
+
+  const handleExportReport = async (type: "Paid" | "Due" | "All") => {
+    try {
+      setGeneratingReport(true);
+      const data =
+        type === "All"
+          ? allUnfilteredPayments
+          : allUnfilteredPayments.filter((p) => p.payment_status === type);
+      await generatePaymentReport({ payments: data, type });
+    } catch (err: any) {
+      Alert.alert("Report Error", err.message || "Could not generate report.");
+    } finally {
+      setGeneratingReport(false);
+    }
   };
 
   const countPaid = allUnfilteredPayments.filter(p => p.payment_status === "Paid").length;
@@ -135,16 +151,16 @@ export default function Payments() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.container}>
-        
+
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>Ledger Invoices Overview</Text>
-          
+
           <View style={styles.heroMainGrid}>
             <View style={styles.heroPrimaryMetric}>
               <Text style={styles.heroMetricNumber}>{allUnfilteredPayments.length}</Text>
               <Text style={styles.heroMetricLabel}>Total Invoices</Text>
             </View>
-            
+
             <View style={styles.heroDivider} />
 
             <View style={styles.heroSecondaryMetrics}>
@@ -153,7 +169,7 @@ export default function Payments() {
                 <Text style={styles.subMetricLabel}>Paid Clearances:</Text>
                 <Text style={[styles.subMetricValue, { color: "#4ECE7B" }]}>{countPaid}</Text>
               </View>
-              
+
               <View style={styles.subMetricRow}>
                 <View style={[styles.indicatorDot, { backgroundColor: "#D97706" }]} />
                 <Text style={styles.subMetricLabel}>Pending Dues:</Text>
@@ -167,6 +183,39 @@ export default function Payments() {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* PDF Export Buttons */}
+        <View style={styles.reportRow}>
+          <TouchableOpacity
+            style={[styles.reportButton, styles.reportPaid, generatingReport && styles.disabledButton]}
+            activeOpacity={0.8}
+            onPress={() => handleExportReport("Paid")}
+            disabled={generatingReport}
+          >
+            <MaterialCommunityIcons name="file-check-outline" size={16} color="#065F46" />
+            <Text style={[styles.reportBtnText, { color: "#065F46" }]}>Export Paid</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.reportButton, styles.reportDue, generatingReport && styles.disabledButton]}
+            activeOpacity={0.8}
+            onPress={() => handleExportReport("Due")}
+            disabled={generatingReport}
+          >
+            <MaterialCommunityIcons name="file-alert-outline" size={16} color="#92400E" />
+            <Text style={[styles.reportBtnText, { color: "#92400E" }]}>Export Dues</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.reportButton, styles.reportAll, generatingReport && styles.disabledButton]}
+            activeOpacity={0.8}
+            onPress={() => handleExportReport("All")}
+            disabled={generatingReport}
+          >
+            <MaterialCommunityIcons name="file-pdf-box" size={16} color="#303841" />
+            <Text style={[styles.reportBtnText, { color: "#303841" }]}>Export All</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.filterRow}>
@@ -249,7 +298,7 @@ export default function Payments() {
                         <MaterialCommunityIcons name="door-open" size={14} color="#475569" />
                         <Text style={styles.room}>Room {item.room_number}</Text>
                       </View>
-                      
+
                       <View style={styles.billingContainer}>
                         <MaterialCommunityIcons name="calendar-range" size={13} color="#76ABAE" />
                         <Text style={styles.billing}>{item.billing_month}</Text>
@@ -365,6 +414,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     textAlign: "right",
+  },
+  reportRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  reportButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  reportBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  reportPaid: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  reportDue: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+  },
+  reportAll: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   filterRow: {
     flexDirection: "row",

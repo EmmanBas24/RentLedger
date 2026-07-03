@@ -50,6 +50,38 @@ export default function Login() {
     }
   };
 
+ const handleForgotPassword = async () => {
+  if (!email.trim()) {
+    Alert.alert(
+      "Reset Password",
+      "Please enter your email address first."
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "rentledger://reset-password",
+    });
+
+    if (error) {
+      Alert.alert("Reset Failed", error.message);
+      return;
+    }
+
+    Alert.alert(
+      "Email Sent",
+      "A password reset link has been sent to your email. Please check your inbox."
+    );
+  } catch (err) {
+    Alert.alert("Error", "Something went wrong.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -68,7 +100,6 @@ export default function Login() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            {/* UPDATED: Custom geometric logo setup identical to register.tsx */}
             <View style={styles.logoContainer}>
               <View style={[styles.logoPanel, styles.panelLeft]} />
               <View style={[styles.logoPanel, styles.panelTop]} />
@@ -95,7 +126,14 @@ export default function Login() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
+              {/* NEW: Flex layout for label and Forgot Password CTA */}
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Password</Text>
+                <TouchableOpacity onPress={handleForgotPassword} activeOpacity={0.7}>
+                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
+              
               <View style={styles.inputWrapper}>
                 <TextInput
                   placeholder="••••••••"
@@ -156,7 +194,6 @@ const styles = StyleSheet.create({
     alignItems: "center", 
     marginBottom: 40 
   },
-  /* --- Geometric Panels Layout Style Block Matching Register Exactly --- */
   logoContainer: { 
     width: 80, 
     height: 80, 
@@ -194,7 +231,6 @@ const styles = StyleSheet.create({
     bottom: 8, 
     zIndex: 3 
   },
-  /* -------------------------------------------------------------------- */
   logoText: { 
     fontSize: 28, 
     fontWeight: "800", 
@@ -222,11 +258,22 @@ const styles = StyleSheet.create({
   inputContainer: { 
     marginBottom: 18 
   },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8
+  },
   label: { 
     fontSize: 13, 
     fontWeight: "600", 
-    color: "#303841", 
-    marginBottom: 8 
+    color: "#303841",
+    marginBottom: 0 // Reset margin for layout alignment in row
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#76ABAE"
   },
   input: { 
     borderWidth: 1, 
