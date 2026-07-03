@@ -44,48 +44,62 @@ export default function Profile() {
     }, [])
   );
 
-  const fetchProfileAndMetrics = async () => {
-    try {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      setUserId(user.id);
-
-      const [profileRes, assetsRes, roomsRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("assets").select("id", { count: "exact", head: true }),
-        supabase.from("rooms").select("status"),
-      ]);
-
-      if (profileRes.data) {
-        setFullName(profileRes.data.full_name || "");
-        setEmail(profileRes.data.email || "");
-        setPhone(profileRes.data.phone || "");
-        setAddress(profileRes.data.address || "");
-        setAvatarUrl(profileRes.data.avatar_url || null);
-      }
-
-      setTotalProperties(assetsRes.count || 0);
-
-      const roomData = roomsRes.data || [];
-      setOccupiedUnits(
-        roomData.filter((r) => r.status?.toLowerCase() === "occupied").length
-      );
-      setAvailableUnits(
-        roomData.filter((r) => r.status?.toLowerCase() === "available").length
-      );
-    } catch (err) {
-      console.error("Error syncing profile metrics:", err);
-    } finally {
+ const fetchProfileAndMetrics = async () => {
+  try {
+    setLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       setLoading(false);
+      return;
     }
-  };
+    setUserId(user.id);
 
+    // Fetching data concurrently, now with filtered rooms
+    const [profileRes, assetsRes, roomsRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single(),
+
+      supabase
+        .from("assets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
+
+      // FIX: Only fetch status from rooms where the parent asset belongs to this user
+      supabase
+        .from("rooms")
+        .select("status, assets!inner(user_id)")
+        .eq("assets.user_id", user.id),
+    ]);
+
+    if (profileRes.data) {
+      setFullName(profileRes.data.full_name || "");
+      setEmail(profileRes.data.email || "");
+      setPhone(profileRes.data.phone || "");
+      setAddress(profileRes.data.address || "");
+      setAvatarUrl(profileRes.data.avatar_url || null);
+    }
+
+    setTotalProperties(assetsRes.count || 0);
+
+    // The filtering now runs safely on only the current user's room data
+    const roomData = roomsRes.data || [];
+    setOccupiedUnits(
+      roomData.filter((r) => r.status?.toLowerCase() === "occupied").length
+    );
+    setAvailableUnits(
+      roomData.filter((r) => r.status?.toLowerCase() === "available").length
+    );
+  } catch (err) {
+    console.error("Error syncing profile metrics:", err);
+  } finally {
+    setLoading(false);
+  }
+};
   const handlePickImage = async () => {
     try {
       const permissionResult =
@@ -113,7 +127,7 @@ export default function Profile() {
       const asset = result.assets[0];
       const fileExt = asset.uri.split(".").pop()?.toLowerCase() || "jpg";
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-     const filePath = fileName;
+      const filePath = fileName;
 
       // Read the file as a blob for upload
       const response = await fetch(asset.uri);
@@ -140,20 +154,20 @@ export default function Profile() {
       } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       // Update the profile record with the new avatar URL
-    const { error: updateError, data: updateData, count } = await supabase
-  .from("profiles")
-  .update({ avatar_url: publicUrl })
-  .eq("id", userId)
-  .select();
-if (updateError) {
-  Alert.alert("Update Failed", updateError.message);
-  return;
-}
+      const { error: updateError, data: updateData, count } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", userId)
+        .select();
+      if (updateError) {
+        Alert.alert("Update Failed", updateError.message);
+        return;
+      }
 
-if (!updateData || updateData.length === 0) {
-  Alert.alert("Update Failed", "No rows were updated. RLS may be blocking the update.");
-  return;
-}
+      if (!updateData || updateData.length === 0) {
+        Alert.alert("Update Failed", "No rows were updated. RLS may be blocking the update.");
+        return;
+      }
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {

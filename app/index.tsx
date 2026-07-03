@@ -1,12 +1,12 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { supabase } from "../src/lib/supabase";
 
 export default function Index() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Simulate a 2.5 second loading delay
     const timer = setTimeout(() => {
       setIsReady(true);
     }, 2500);
@@ -16,15 +16,21 @@ export default function Index() {
 
   useEffect(() => {
     if (isReady) {
-      // Once loading is complete, route to the login page
-      router.replace("/(auth)/login");
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          // User is logged in — go to home
+          // (if it's a password recovery, _layout.tsx handles the redirect)
+          router.replace("/(tabs)/assets");
+        } else {
+          router.replace("/(auth)/login");
+        }
+      });
     }
   }, [isReady]);
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* Geometric Accent Loading Spinner */}
         <ActivityIndicator size="large" color="#76ABAE" />
         <Text style={styles.loadingText}>Loading RentLedger...</Text>
       </View>
@@ -35,7 +41,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#303841", // Matches your core primary brand color
+    backgroundColor: "#303841",
     justifyContent: "center",
     alignItems: "center",
   },
